@@ -2416,7 +2416,7 @@
       const nextVersion = getNextManualCommandVersion(carId);
       const safeCommand = command || "STOP";
 
-      const manualUpdate = update(ref(database, `manualControls/${carId}`), {
+      await update(ref(database, `manualControls/${carId}`), {
         enabled,
         command: safeCommand,
         speed,
@@ -2424,29 +2424,6 @@
         updatedAt: now,
         updatedBy: getManualUpdatedBy()
       });
-
-      const carUpdate = enabled
-        ? update(ref(database, `cars/${carId}`), {
-          mode: "manual",
-          positionKnown: false,
-          etaValid: false,
-          needsPositionConfirm: true,
-          expectedNextStop: null,
-          eta: null,
-          etaToNextStop: null,
-          manualModeRequestedAt: now
-        })
-        : update(ref(database, `cars/${carId}`), {
-          positionKnown: false,
-          etaValid: false,
-          needsPositionConfirm: true,
-          expectedNextStop: null,
-          eta: null,
-          etaToNextStop: null,
-          manualModeDisabledAt: now
-        });
-
-      await Promise.all([manualUpdate, carUpdate]);
     }
 
     async function sendCarCommand(carId, command, mode, extra = {}) {
