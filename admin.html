@@ -2401,16 +2401,7 @@
     }
 
     function getNextManualCommandVersion(carId) {
-      const firebaseVersion = Number(manualControlsData?.[carId]?.commandVersion || 0);
-      const localVersion = Number(manualCommandVersionByCar?.[carId] || 0);
-      const safeFirebaseVersion = Number.isFinite(firebaseVersion) && firebaseVersion >= 0 && firebaseVersion < 2000000000
-        ? firebaseVersion
-        : 0;
-      const safeLocalVersion = Number.isFinite(localVersion) && localVersion >= 0 && localVersion < 2000000000
-        ? localVersion
-        : 0;
-      const nextVersion = Math.max(safeFirebaseVersion, safeLocalVersion) + 1;
-
+      const nextVersion = Date.now().toString();
       manualCommandVersionByCar[carId] = nextVersion;
       return nextVersion;
     }
@@ -2425,7 +2416,7 @@
       const nextVersion = getNextManualCommandVersion(carId);
       const safeCommand = command || "STOP";
 
-      await update(ref(database, `manualControls/${carId}`), {
+      const manualUpdate = update(ref(database, `manualControls/${carId}`), {
         enabled,
         command: safeCommand,
         speed,
@@ -2434,8 +2425,8 @@
         updatedBy: getManualUpdatedBy()
       });
 
-      if (enabled) {
-        await update(ref(database, `cars/${carId}`), {
+      const carUpdate = enabled
+        ? update(ref(database, `cars/${carId}`), {
           mode: "manual",
           positionKnown: false,
           etaValid: false,
@@ -2444,9 +2435,8 @@
           eta: null,
           etaToNextStop: null,
           manualModeRequestedAt: now
-        });
-      } else {
-        await update(ref(database, `cars/${carId}`), {
+        })
+        : update(ref(database, `cars/${carId}`), {
           positionKnown: false,
           etaValid: false,
           needsPositionConfirm: true,
@@ -2455,7 +2445,8 @@
           etaToNextStop: null,
           manualModeDisabledAt: now
         });
-      }
+
+      await Promise.all([manualUpdate, carUpdate]);
     }
 
     async function sendCarCommand(carId, command, mode, extra = {}) {
