@@ -1,0 +1,3293 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MEGABUS Admin Panel</title>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1220;
+      --panel: #111827;
+      --panel-2: #162033;
+      --panel-3: #0f172a;
+      --line: #2b3a52;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --blue: #38bdf8;
+      --yellow: #facc15;
+      --green: #22c55e;
+      --red: #ef4444;
+      --orange: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: #020617;
+      border-bottom: 2px solid var(--blue);
+      padding: 22px 18px;
+    }
+
+    .header-inner {
+      align-items: center;
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+      margin: 0 auto;
+      max-width: 1240px;
+    }
+
+    h1 {
+      color: var(--blue);
+      font-size: 30px;
+      margin: 0;
+    }
+
+    .header-meta {
+      color: #cbd5e1;
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .container {
+      margin: 0 auto;
+      max-width: 1240px;
+      padding: 22px 16px 38px;
+    }
+
+    .login-card,
+    .panel-card,
+    .detail-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+    }
+
+    .login-card {
+      margin: 38px auto;
+      max-width: 430px;
+      padding: 24px;
+    }
+
+    .login-card h2 {
+      color: var(--yellow);
+      margin: 0 0 18px;
+    }
+
+    label {
+      color: #cbd5e1;
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin: 14px 0 6px;
+    }
+
+    input {
+      background: #020617;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 16px;
+      padding: 12px;
+      width: 100%;
+    }
+
+    button {
+      background: #2563eb;
+      border: 0;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 800;
+      padding: 11px 14px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .logout-button {
+      background: #7f1d1d;
+    }
+
+    .logout-button:hover {
+      background: #991b1b;
+    }
+
+    .login-button {
+      margin-top: 18px;
+      width: 100%;
+    }
+
+    .error {
+      color: #fecaca;
+      font-size: 14px;
+      margin-top: 14px;
+      min-height: 20px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .topbar {
+      align-items: center;
+      background: #020617;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding: 13px;
+    }
+
+    .topbar-info {
+      color: #cbd5e1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .section-title {
+      color: var(--yellow);
+      font-size: 24px;
+      font-weight: 800;
+      margin: 22px 0 12px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .panel-card {
+      cursor: pointer;
+      padding: 16px;
+      transition: border-color 120ms ease, transform 120ms ease;
+    }
+
+    .panel-card:hover,
+    .panel-card.active {
+      border-color: var(--blue);
+      transform: translateY(-1px);
+    }
+
+    .card-title {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card-name {
+      color: var(--yellow);
+      font-size: 21px;
+      font-weight: 800;
+    }
+
+    .small-id {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mini-row {
+      color: #cbd5e1;
+      font-size: 14px;
+      margin-top: 7px;
+    }
+
+    .detail-panel {
+      margin-top: 22px;
+      padding: 18px;
+    }
+
+    .detail-view {
+      margin-top: 18px;
+    }
+
+    .detail-content {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+      padding: 18px;
+    }
+
+    .back-button {
+      background: #334155;
+      margin-bottom: 16px;
+    }
+
+    .back-button:hover {
+      background: #475569;
+    }
+
+    .detail-header {
+      align-items: baseline;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .detail-header h2 {
+      color: var(--blue);
+      margin: 0;
+    }
+
+    .sub-title {
+      color: var(--blue);
+      font-size: 18px;
+      font-weight: 800;
+      margin: 20px 0 10px;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+
+    .telemetry-box {
+      background: var(--panel-3);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 72px;
+      padding: 11px;
+    }
+
+    .telemetry-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+
+    .telemetry-value {
+      color: #e2e8f0;
+      font-size: 17px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .badge {
+      border-radius: 999px;
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 6px 10px;
+    }
+
+    .moving,
+    .follow {
+      background: #14532d;
+      color: #dcfce7;
+    }
+
+    .arrived {
+      background: #166534;
+      color: #dcfce7;
+    }
+
+    .search {
+      background: #854d0e;
+      color: #fef3c7;
+    }
+
+    .stop {
+      background: #7f1d1d;
+      color: #fecaca;
+    }
+
+    .unknown {
+      background: #475569;
+      color: #e2e8f0;
+    }
+
+    .model-status {
+      border-radius: 999px;
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 6px 10px;
+      text-transform: uppercase;
+    }
+
+    .model-status.trained {
+      background: #166534;
+      color: #dcfce7;
+    }
+
+    .model-status.needs-retraining {
+      background: #854d0e;
+      color: #fef3c7;
+    }
+
+    .model-status.old-model {
+      background: #7f1d1d;
+      color: #fecaca;
+    }
+
+    .model-status.not-trained,
+    .model-status.no-active-route {
+      background: #475569;
+      color: #e2e8f0;
+    }
+
+    .ai-training-layout {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+    }
+
+    .feature-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .feature-chip {
+      background: #0f172a;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 7px 10px;
+    }
+
+    .ai-note {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #cbd5e1;
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 12px;
+      padding: 11px;
+    }
+
+    .ai-warning {
+      background: #451a03;
+      border-color: #f59e0b;
+      color: #fef3c7;
+    }
+
+    .ai-placeholder-button {
+      background: #334155;
+    }
+
+    .ai-placeholder-button:hover {
+      background: #475569;
+    }
+
+    .ai-placeholder-button:disabled {
+      background: #1f2937;
+      color: #64748b;
+      cursor: not-allowed;
+    }
+
+    .eta-car-model-button[aria-pressed="true"] {
+      background: #2563eb;
+      color: #eff6ff;
+    }
+
+    .eta-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .eta-box {
+      background: #2563eb;
+      border-radius: 8px;
+      min-width: 76px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .eta-car {
+      color: #bfdbfe;
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .empty-eta {
+      background: #263247;
+      color: #cbd5e1;
+    }
+
+    .manual-badge {
+      background: #b45309;
+      color: #fffbeb;
+    }
+
+    .manual-mode-button {
+      background: #b91c1c;
+    }
+
+    .manual-mode-button:hover {
+      background: #991b1b;
+    }
+
+    .manual-mode-button.manual-enabled {
+      background: #166534;
+    }
+
+    .manual-mode-button.manual-enabled:hover {
+      background: #14532d;
+    }
+
+    .manual-panel {
+      background: #180f12;
+      border: 1px solid #7f1d1d;
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .manual-warning {
+      color: #fecaca;
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .manual-controls {
+      display: grid;
+      gap: 9px;
+      grid-template-columns: repeat(3, minmax(0, 92px));
+      justify-content: start;
+      margin-top: 12px;
+    }
+
+    .manual-controls button {
+      background: #334155;
+      min-height: 42px;
+    }
+
+    .manual-controls button:hover:not(:disabled) {
+      background: #475569;
+    }
+
+    .manual-controls button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .manual-controls .forward,
+    .manual-controls .backward {
+      grid-column: 2;
+    }
+
+    .manual-controls .forward {
+      grid-row: 1;
+    }
+
+    .manual-controls [data-manual-command="LEFT"] {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .manual-controls [data-manual-command="STOP"] {
+      grid-column: 2;
+      grid-row: 2;
+      background: #7f1d1d;
+    }
+
+    .manual-controls [data-manual-command="RIGHT"] {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
+    .manual-controls .backward {
+      grid-row: 3;
+    }
+
+    .manual-speed-row {
+      max-width: 220px;
+    }
+
+    .system-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+    }
+
+    .system-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+      padding: 16px;
+    }
+
+    .system-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .start-trips-button {
+      background: #166534;
+    }
+
+    .start-trips-button:hover {
+      background: #14532d;
+    }
+
+    .stop-trips-button {
+      background: #7f1d1d;
+    }
+
+    .stop-trips-button:hover {
+      background: #991b1b;
+    }
+
+    .device-status-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .device-status-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .device-status-card.online {
+      border-color: rgba(34, 197, 94, 0.7);
+    }
+
+    .device-status-card.offline {
+      border-color: rgba(239, 68, 68, 0.7);
+    }
+
+    .device-status-name {
+      align-items: center;
+      display: flex;
+      font-size: 14px;
+      font-weight: 900;
+      gap: 8px;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .device-pill {
+      border-radius: 999px;
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 4px 8px;
+      text-transform: uppercase;
+    }
+
+    .device-pill.online {
+      background: #14532d;
+      color: #dcfce7;
+    }
+
+    .device-pill.offline {
+      background: #7f1d1d;
+      color: #fecaca;
+    }
+
+    .device-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .status-dot {
+      border-radius: 50%;
+      display: inline-block;
+      height: 12px;
+      width: 12px;
+    }
+
+    .status-dot.green {
+      background: #22c55e;
+    }
+
+    .status-dot.yellow {
+      background: #facc15;
+    }
+
+    .status-dot.red {
+      background: #ef4444;
+    }
+
+    .status-dot.gray {
+      background: #64748b;
+    }
+
+    .occupancy-row {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+    }
+
+    .trip-alert {
+      background: #172554;
+      border: 1px solid #38bdf8;
+      border-radius: 8px;
+      color: #e0f2fe;
+      font-weight: 800;
+      margin-top: 10px;
+      padding: 12px;
+    }
+
+    .pid-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .pid-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .pid-card h3 {
+      margin: 0 0 10px;
+    }
+
+    .pid-form-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pid-form-grid label {
+      font-size: 12px;
+    }
+
+    .pid-save-button {
+      background: #0369a1;
+      margin-top: 12px;
+      width: 100%;
+    }
+
+    .pid-save-button:hover {
+      background: #075985;
+    }
+
+    .recovery-button {
+      background: #0369a1;
+    }
+
+    .recovery-button:hover {
+      background: #075985;
+    }
+
+    .secondary-button {
+      background: #334155;
+    }
+
+    .secondary-button:hover {
+      background: #475569;
+    }
+
+    .calibration-button {
+      background: #854d0e;
+    }
+
+    .calibration-button:hover {
+      background: #713f12;
+    }
+
+    .modal-backdrop {
+      align-items: center;
+      background: rgba(2, 6, 23, 0.72);
+      display: flex;
+      inset: 0;
+      justify-content: center;
+      padding: 18px;
+      position: fixed;
+      z-index: 20;
+    }
+
+    .modal-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+      max-width: 460px;
+      padding: 22px;
+      width: min(100%, 460px);
+    }
+
+    .modal-card h2 {
+      font-size: 22px;
+      margin: 0 0 10px;
+    }
+
+    .modal-card p {
+      color: var(--muted);
+      line-height: 1.55;
+      margin: 0 0 16px;
+    }
+
+    .modal-card select {
+      margin-bottom: 16px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 680px) {
+      .header-inner,
+      .topbar,
+      .detail-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .header-meta {
+        text-align: left;
+      }
+
+      .logout-button {
+        width: 100%;
+      }
+
+      .ai-training-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>MEGABUS Admin Panel</h1>
+        <div class="header-meta">Technical dashboard for vehicles and stations</div>
+      </div>
+      <a href="./guest.html" style="color:#38bdf8;font-weight:800;text-decoration:none;">Yolcu Paneli</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="login-card" id="loginPanel">
+      <h2>Admin Girisi</h2>
+      <form id="loginForm">
+        <label for="emailInput">Email</label>
+        <input id="emailInput" type="email" autocomplete="username" required />
+
+        <label for="passwordInput">Sifre</label>
+        <input id="passwordInput" type="password" autocomplete="current-password" required />
+
+        <button class="login-button" type="submit">Giris Yap</button>
+      </form>
+      <div class="error" id="loginError"></div>
+    </section>
+
+    <section id="dashboardPanel" class="hidden">
+      <div class="topbar">
+        <div class="topbar-info">
+          <span id="adminEmail">Admin: -</span>
+          <span id="connectionStatus">Firebase: Connecting...</span>
+          <span id="lastUpdate">Last update: -</span>
+        </div>
+        <button class="logout-button" id="logoutButton" type="button">Cikis Yap</button>
+      </div>
+
+      <section id="dashboardView">
+        <div class="section-title">Baglanti Durumu</div>
+        <div id="deviceStatusContainer"></div>
+
+        <div class="section-title">System Control</div>
+        <div id="systemControlContainer"></div>
+
+        <div class="section-title">Arac Doluluk Durumu</div>
+        <div id="occupancyContainer"></div>
+
+        <div class="section-title">Ek Sefer</div>
+        <div id="tripCapacityContainer"></div>
+        <div class="trip-alert hidden" id="tripAlert"></div>
+
+        <div class="section-title">PID Ayarlari</div>
+        <div id="pidSettingsContainer"></div>
+
+        <div class="section-title">Route Calibration</div>
+        <div id="routeSummaryContainer"></div>
+
+        <div class="section-title">AI ETA Prediction / ML Training</div>
+        <div id="aiTrainingContainer"></div>
+
+        <div class="section-title">Cars</div>
+        <div class="card-grid" id="carsGrid"></div>
+
+        <div class="section-title">Stations</div>
+        <div class="card-grid" id="stationsGrid"></div>
+      </section>
+
+      <section id="detailView" class="detail-view hidden">
+        <button class="back-button" id="backButton" type="button">&larr; Geri Don</button>
+        <div class="detail-content" id="detailContent"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="modal-backdrop hidden" id="recoveryModal">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle">
+      <h2 id="recoveryModalTitle">Araci otomatik moda dondur</h2>
+      <p>
+        Arac su anda konumu bilinmeyen durumda. Lutfen aracin cizgi uzerinde
+        ilerlediginde ilk ulasacagi siradaki duragi secin.
+      </p>
+      <label for="recoveryStopSelect">Siradaki durak:</label>
+      <select id="recoveryStopSelect">
+        <option value="1">Stop 1</option>
+        <option value="2">Stop 2</option>
+        <option value="3">Stop 3</option>
+        <option value="4">Stop 4</option>
+        <option value="5">Stop 5</option>
+        <option value="6">Stop 6</option>
+      </select>
+      <div class="modal-actions">
+        <button class="secondary-button" id="cancelRecoveryButton" type="button">Iptal</button>
+        <button class="recovery-button" id="confirmRecoveryButton" type="button">Otomatik Moda Don</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set, update } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB7fpAJww5J_zl-T4srs0McVGSxCPndIFA",
+      authDomain: "megabus-8ff11.firebaseapp.com",
+      databaseURL: "https://megabus-8ff11-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "megabus-8ff11",
+      storageBucket: "megabus-8ff11.firebasestorage.app",
+      messagingSenderId: "156931593615",
+      appId: "1:156931593615:web:ccf596af5f0366cb97e7fa"
+    };
+
+    const ADMIN_EMAILS = [
+      "caneryuruk1@gmail.com",
+      "kirve@gmail.com",
+      "baro@gmail.com",
+      "musti@gmail.com",
+      "sasan@gmail.com"
+    ];
+
+    // Gercek production guvenligi icin Firebase Database Rules ve custom claims/role yapisi kullanilmalidir.
+    const OFFLINE_TIMEOUT_MS = 10000;
+    const EXPECTED_CARS = ["car1", "car2", "car3"];
+    const ETA_INPUT_FEATURES = [
+      "segmentIndex",
+      "segmentDistance",
+      "calibratedDurationSec",
+      "occupancyLevel",
+      "distanceActionLevel",
+      "avgPWM",
+      "lineLost"
+    ];
+    const DEFAULT_ETA_INPUT_FEATURES = ETA_INPUT_FEATURES;
+    const ETA_MIN_TRAINING_SAMPLES = 10;
+    const ETA_TRAINING_EPOCHS = 120;
+    const ETA_TRAINING_BATCH_SIZE = 8;
+    const EXPECTED_STATIONS = [
+      { id: "station1", name: "Station 1" },
+      { id: "station2", name: "Station 2" },
+      { id: "station3", name: "Station 3" }
+    ];
+
+    const STATION_STOP_MAP = {
+      station1: [0, 3],
+      station2: [1, 4],
+      station3: [2, 5]
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    const auth = getAuth(app);
+
+    const loginPanel = document.getElementById("loginPanel");
+    const dashboardPanel = document.getElementById("dashboardPanel");
+    const loginForm = document.getElementById("loginForm");
+    const loginError = document.getElementById("loginError");
+    const logoutButton = document.getElementById("logoutButton");
+    const adminEmail = document.getElementById("adminEmail");
+    const connectionStatus = document.getElementById("connectionStatus");
+    const lastUpdate = document.getElementById("lastUpdate");
+    const dashboardView = document.getElementById("dashboardView");
+    const detailView = document.getElementById("detailView");
+    const backButton = document.getElementById("backButton");
+    const deviceStatusContainer = document.getElementById("deviceStatusContainer");
+    const systemControlContainer = document.getElementById("systemControlContainer");
+    const occupancyContainer = document.getElementById("occupancyContainer");
+    const tripCapacityContainer = document.getElementById("tripCapacityContainer");
+    const tripAlert = document.getElementById("tripAlert");
+    const pidSettingsContainer = document.getElementById("pidSettingsContainer");
+    const routeSummaryContainer = document.getElementById("routeSummaryContainer");
+    const aiTrainingContainer = document.getElementById("aiTrainingContainer");
+    const carsGrid = document.getElementById("carsGrid");
+    const stationsGrid = document.getElementById("stationsGrid");
+    const detailContent = document.getElementById("detailContent");
+    const recoveryModal = document.getElementById("recoveryModal");
+    const recoveryStopSelect = document.getElementById("recoveryStopSelect");
+    const cancelRecoveryButton = document.getElementById("cancelRecoveryButton");
+    const confirmRecoveryButton = document.getElementById("confirmRecoveryButton");
+
+    let systemData = {};
+    let stationsData = {};
+    let carsData = {};
+    let manualControlsData = {};
+    let commandsData = {};
+    let routeData = {};
+    let aiModelsData = {};
+    let mlTrainingData = {};
+    let currentView = "dashboard";
+    let selectedType = null;
+    let selectedId = null;
+    let recoveryModalCarId = null;
+    let lastVirtualCar4Active = null;
+    let lastVirtualTripSyncKey = "";
+    let tripAlertTimer = null;
+    let etaModelsByCar = {};
+    let etaModelNormalizationsByCar = {};
+    let etaTrainingInProgressByCar = {};
+    let etaTrainingStateByCar = {};
+    let etaPredictionStateByCar = {};
+    let selectedEtaCarId = "car1";
+    let systemUnsubscribe = null;
+    let carsUnsubscribe = null;
+    let stationsUnsubscribe = null;
+    let manualControlsUnsubscribe = null;
+    let commandsUnsubscribe = null;
+    let routeUnsubscribe = null;
+    let aiModelsUnsubscribe = null;
+    let mlTrainingDataUnsubscribe = null;
+
+    function valueOrNoData(value, suffix = "") {
+      if (value === undefined || value === null || value === "") {
+        return "Bilgi yok";
+      }
+
+      return value + suffix;
+    }
+
+    function formatEta(value) {
+      if (value === undefined || value === null || value === "") {
+        return "-";
+      }
+
+      return value + "s";
+    }
+
+    function formatDistance(value) {
+      if (value === undefined || value === null || value === "" || value === -1) {
+        return "Bilgi yok";
+      }
+
+      return value + " cm";
+    }
+
+    function formatDurationMs(value) {
+      if (value === undefined || value === null || value === "" || Number(value) <= 0) {
+        return "Bilgi yok";
+      }
+
+      return (Number(value) / 1000).toFixed(1) + "s";
+    }
+
+    function formatTimestamp(value) {
+      if (value === undefined || value === null || value === "") {
+        return "Bilgi yok";
+      }
+
+      const date = new Date(Number(value));
+      if (Number.isNaN(date.getTime())) {
+        return "Bilgi yok";
+      }
+
+      return date.toLocaleString();
+    }
+
+    function boolText(value) {
+      if (value === undefined || value === null) {
+        return "Bilgi yok";
+      }
+
+      return value ? "Evet" : "Hayir";
+    }
+
+    function aiModelStatusText(model) {
+      if (!model || model.trained !== true) {
+        return "not trained";
+      }
+
+      return "trained";
+    }
+
+    function formatMae(value) {
+      if (value === undefined || value === null || value === "") {
+        return "Bilgi yok";
+      }
+
+      const numberValue = Number(value);
+      if (!Number.isFinite(numberValue)) {
+        return "Bilgi yok";
+      }
+
+      return numberValue.toFixed(2) + "s";
+    }
+
+    function countMlTrainingSamples() {
+      return Object.values(mlTrainingData || {}).reduce((total, carSamples) => {
+        if (!carSamples || typeof carSamples !== "object") {
+          return total;
+        }
+
+        return total + Object.keys(carSamples).length;
+      }, 0);
+    }
+
+    function getTotalTrainingSampleCountForCar(carId) {
+      return Object.keys(mlTrainingData?.[carId] || {}).length;
+    }
+
+    function getActiveRouteTrainingSamplesForCar(carId) {
+      const activeVersion = Number(systemData?.activeRouteVersion || 0);
+      const carSamples = mlTrainingData?.[carId] || {};
+      const samples = [];
+
+      if (!activeVersion) {
+        return samples;
+      }
+
+      Object.values(carSamples || {}).forEach((sample) => {
+        if (sample &&
+            typeof sample === "object" &&
+            Number(sample?.routeVersion || 0) === activeVersion) {
+          samples.push({ carId, ...sample });
+        }
+      });
+
+      return samples;
+    }
+
+    function getActiveRouteTrainingSamples() {
+      return EXPECTED_CARS.flatMap(carId => getActiveRouteTrainingSamplesForCar(carId));
+    }
+
+    function getTotalTrainingSampleCount() {
+      return countMlTrainingSamples();
+    }
+
+    function getEtaModelInfoForCar(carId) {
+      return aiModelsData?.etaModels?.[carId] || {};
+    }
+
+    function getEtaModelStatusForCar(carId) {
+      const activeVersion = Number(systemData?.activeRouteVersion || 0);
+      const model = getEtaModelInfoForCar(carId);
+
+      if (!activeVersion) {
+        return "No active route";
+      }
+
+      if (model.needsRetraining) {
+        return "Needs retraining";
+      }
+
+      if (!model.trained) {
+        return "Not trained";
+      }
+
+      if (Number(model.trainedRouteVersion || 0) !== activeVersion) {
+        return "Old model";
+      }
+
+      return "Trained";
+    }
+
+    function getEtaModelStatus() {
+      return getEtaModelStatusForCar(selectedEtaCarId);
+    }
+
+    function modelStatusClass(status) {
+      return String(status || "Not trained").toLowerCase().replace(/\s+/g, "-");
+    }
+
+    function formatAiTimestamp(value) {
+      if (!value || Number(value) <= 0) {
+        return "-";
+      }
+
+      return formatTimestamp(value);
+    }
+
+    function formatAiMae(value) {
+      if (value === undefined || value === null || value === "") {
+        return "-";
+      }
+
+      const numberValue = Number(value);
+      if (!Number.isFinite(numberValue)) {
+        return "-";
+      }
+
+      return numberValue.toFixed(2) + "s";
+    }
+
+    function etaInputFeatures(model) {
+      const features = model?.inputFeatures;
+      return Array.isArray(features) && features.length ? features : DEFAULT_ETA_INPUT_FEATURES;
+    }
+
+    function numberOrZero(value) {
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? numericValue : 0;
+    }
+
+    function normalizeEtaSample(sample) {
+      return {
+        input: [
+          numberOrZero(sample?.segmentIndex),
+          numberOrZero(sample?.segmentDistance),
+          numberOrZero(sample?.calibratedDurationSec),
+          numberOrZero(sample?.occupancyLevel),
+          numberOrZero(sample?.distanceActionLevel),
+          numberOrZero(sample?.avgPWM),
+          numberOrZero(sample?.lineLost)
+        ],
+        output: numberOrZero(sample?.actualDurationSec)
+      };
+    }
+
+    function getValidEtaTrainingRowsForCar(carId) {
+      return getActiveRouteTrainingSamplesForCar(carId)
+        .map(normalizeEtaSample)
+        .filter(row => row.output > 0 && row.input.every(Number.isFinite));
+    }
+
+    function getValidEtaTrainingRows() {
+      return getValidEtaTrainingRowsForCar(selectedEtaCarId);
+    }
+
+    function computeNormalizationStats(rows) {
+      const featureCount = ETA_INPUT_FEATURES.length;
+      const mins = Array(featureCount).fill(Infinity);
+      const maxs = Array(featureCount).fill(-Infinity);
+
+      rows.forEach((row) => {
+        row.input.forEach((value, index) => {
+          mins[index] = Math.min(mins[index], value);
+          maxs[index] = Math.max(maxs[index], value);
+        });
+      });
+
+      return { mins, maxs };
+    }
+
+    function normalizeInputRow(input, stats) {
+      return input.map((value, index) => {
+        const min = stats.mins[index];
+        const max = stats.maxs[index];
+
+        if (!Number.isFinite(min) || !Number.isFinite(max) || max === min) {
+          return 0;
+        }
+
+        return (value - min) / (max - min);
+      });
+    }
+
+    function computeOutputStats(rows) {
+      const values = rows.map(row => row.output);
+      return {
+        min: Math.min(...values),
+        max: Math.max(...values)
+      };
+    }
+
+    function normalizeOutput(value, stats) {
+      if (stats.max === stats.min) {
+        return 0;
+      }
+
+      return (value - stats.min) / (stats.max - stats.min);
+    }
+
+    function denormalizeOutput(value, stats) {
+      if (stats.max === stats.min) {
+        return stats.min;
+      }
+
+      return value * (stats.max - stats.min) + stats.min;
+    }
+
+    function createEtaModel() {
+      const tfLib = window.tf;
+      if (!tfLib) {
+        throw new Error("TensorFlow.js could not be loaded.");
+      }
+
+      const model = tfLib.sequential();
+
+      model.add(tfLib.layers.dense({
+        inputShape: [ETA_INPUT_FEATURES.length],
+        units: 16,
+        activation: "relu"
+      }));
+
+      model.add(tfLib.layers.dense({
+        units: 8,
+        activation: "relu"
+      }));
+
+      model.add(tfLib.layers.dense({
+        units: 1
+      }));
+
+      model.compile({
+        optimizer: tfLib.train.adam(0.01),
+        loss: "meanSquaredError"
+      });
+
+      return model;
+    }
+
+    async function calculateEtaMae(model, rows, inputStats, outputStats) {
+      const tfLib = window.tf;
+      const normalizedInputs = rows.map(row => normalizeInputRow(row.input, inputStats));
+      const xs = tfLib.tensor2d(normalizedInputs);
+      let predictions = null;
+
+      try {
+        predictions = model.predict(xs);
+        const predictedValues = Array.from(await predictions.data());
+        const totalError = predictedValues.reduce((sum, predicted, index) => {
+          const predictedSec = denormalizeOutput(predicted, outputStats);
+          return sum + Math.abs(predictedSec - rows[index].output);
+        }, 0);
+
+        return totalError / rows.length;
+      } finally {
+        xs.dispose();
+        if (predictions) {
+          predictions.dispose();
+        }
+      }
+    }
+
+    function getEtaTrainingStateForCar(carId) {
+      return etaTrainingStateByCar[carId] || {
+        state: "Idle",
+        message: "Ready to train when enough active route samples are available."
+      };
+    }
+
+    function setEtaTrainingStateForCar(carId, state, message) {
+      etaTrainingStateByCar[carId] = { state, message };
+      connectionStatus.innerText = message;
+      renderAll();
+    }
+
+    async function trainEtaModelForCar(carId) {
+      if (!EXPECTED_CARS.includes(carId) || etaTrainingInProgressByCar[carId]) {
+        return;
+      }
+
+      const tfLib = window.tf;
+      const activeVersion = Number(systemData?.activeRouteVersion || 0);
+      const rows = getValidEtaTrainingRowsForCar(carId);
+
+      if (!tfLib) {
+        setEtaTrainingStateForCar(carId, "Error", "TensorFlow.js could not be loaded.");
+        return;
+      }
+
+      if (!activeVersion) {
+        setEtaTrainingStateForCar(carId, "Error", "No active route version yet.");
+        return;
+      }
+
+      if (rows.length < ETA_MIN_TRAINING_SAMPLES) {
+        setEtaTrainingStateForCar(carId, "Error", `${carId}: at least 10 valid samples are required to train the ETA model.`);
+        return;
+      }
+
+      etaTrainingInProgressByCar[carId] = true;
+      setEtaTrainingStateForCar(carId, "Training", `${carId}: training on ${rows.length} active route samples...`);
+
+      const inputStats = computeNormalizationStats(rows);
+      const outputStats = computeOutputStats(rows);
+      const normalizedInputs = rows.map(row => normalizeInputRow(row.input, inputStats));
+      const normalizedOutputs = rows.map(row => [normalizeOutput(row.output, outputStats)]);
+      const batchSize = Math.min(ETA_TRAINING_BATCH_SIZE, rows.length);
+
+      let xs = null;
+      let ys = null;
+      let trainedModel = null;
+      let modelCommitted = false;
+
+      try {
+        xs = tfLib.tensor2d(normalizedInputs);
+        ys = tfLib.tensor2d(normalizedOutputs, [normalizedOutputs.length, 1]);
+        trainedModel = createEtaModel();
+
+        await trainedModel.fit(xs, ys, {
+          epochs: ETA_TRAINING_EPOCHS,
+          batchSize,
+          shuffle: true
+        });
+
+        const mae = await calculateEtaMae(trainedModel, rows, inputStats, outputStats);
+
+        await update(ref(database, `aiModels/etaModels/${carId}`), {
+          trained: true,
+          needsRetraining: false,
+          trainedRouteVersion: activeVersion,
+          sampleCount: rows.length,
+          validSampleCount: rows.length,
+          lastTrainedAt: Date.now(),
+          mae: Number(mae.toFixed(2)),
+          modelType: "TensorFlow.js Regression",
+          inputFeatures: ETA_INPUT_FEATURES,
+          outputLabel: "actualDurationSec",
+          epochs: ETA_TRAINING_EPOCHS,
+          batchSize
+        });
+
+        if (etaModelsByCar[carId]) {
+          etaModelsByCar[carId].dispose();
+        }
+
+        etaModelsByCar[carId] = trainedModel;
+        modelCommitted = true;
+        etaModelNormalizationsByCar[carId] = {
+          input: inputStats,
+          output: outputStats,
+          trainedRouteVersion: activeVersion
+        };
+        setEtaTrainingStateForCar(carId, "Completed", `${carId}: model trained successfully. MAE: ${mae.toFixed(2)}s`);
+      } catch (error) {
+        setEtaTrainingStateForCar(carId, "Error", `${carId}: ETA model training failed. ${error.message}`);
+      } finally {
+        if (xs) {
+          xs.dispose();
+        }
+
+        if (ys) {
+          ys.dispose();
+        }
+
+        if (trainedModel && !modelCommitted) {
+          trainedModel.dispose();
+        }
+
+        etaTrainingInProgressByCar[carId] = false;
+        renderAll();
+      }
+    }
+
+    async function trainEtaModel() {
+      await trainEtaModelForCar(selectedEtaCarId);
+    }
+
+    function getSelectedCarIdForEtaPrediction() {
+      if (currentView === "detail" &&
+          selectedType === "car" &&
+          selectedId &&
+          EXPECTED_CARS.includes(selectedId)) {
+        return selectedId;
+      }
+
+      const onlineCarId = EXPECTED_CARS.find(carId => isDeviceOnline(carsData?.[carId] || {}));
+      return onlineCarId || "car1";
+    }
+
+    function getEtaPredictionSelectionMessage(carId) {
+      if (currentView === "detail" &&
+          selectedType === "car" &&
+          selectedId === carId) {
+        return "";
+      }
+
+      if (isDeviceOnline(carsData?.[carId] || {})) {
+        return "";
+      }
+
+      return "No online car found. Falling back to car1.";
+    }
+
+    function firstFiniteNumber(...values) {
+      for (const value of values) {
+        const numericValue = Number(value);
+        if (Number.isFinite(numericValue)) {
+          return numericValue;
+        }
+      }
+
+      return 0;
+    }
+
+    function normalizeEtaText(value) {
+      if (value === undefined || value === null) {
+        return "";
+      }
+
+      if (typeof value === "object") {
+        return normalizeEtaText(value.status ?? value.label ?? value.value ?? value.text ?? value.level);
+      }
+
+      return String(value)
+        .trim()
+        .replace(/\u0130/g, "I")
+        .replace(/\u0131/g, "i")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_");
+    }
+
+    function getRouteSegment(segmentIndex) {
+      const segments = routeData?.segments || {};
+
+      if (Array.isArray(segments)) {
+        return segments[segmentIndex] || {};
+      }
+
+      return (
+        segments[String(segmentIndex)] ||
+        segments[`segment${segmentIndex}`] ||
+        segments[`segment_${segmentIndex}`] ||
+        {}
+      );
+    }
+
+    function getCurrentSegmentIndexForEta(car) {
+      const segmentIndex = firstFiniteNumber(
+        car?.currentSegmentIndex,
+        car?.segmentIndex,
+        car?.currentStopIndex,
+        car?.nextStopIndex
+      );
+
+      return Math.max(0, Math.round(segmentIndex));
+    }
+
+    function getSegmentDistanceForEta(segment, car) {
+      return Math.max(0, firstFiniteNumber(
+        segment?.distance,
+        segment?.distanceCm,
+        segment?.segmentDistance,
+        car?.segmentDistance
+      ));
+    }
+
+    function getCalibratedDurationSecForEta(segment, car) {
+      let durationSec = firstFiniteNumber(
+        segment?.durationSec,
+        segment?.duration,
+        segment?.durationMs,
+        segment?.calibratedDurationSec,
+        car?.calibratedDurationSec
+      );
+
+      if (durationSec > 1000) {
+        durationSec = durationSec / 1000;
+      }
+
+      return Math.max(0, durationSec);
+    }
+
+    function getOccupancyLevelForEta(car) {
+      const rawValue = car?.occupancyLevel ?? car?.occupancyStatus ?? car?.occupancy ?? car?.fsrStatus;
+      const numericValue = Number(rawValue);
+
+      if (Number.isFinite(numericValue)) {
+        return Math.max(0, Math.min(2, Math.round(numericValue)));
+      }
+
+      const textValue = normalizeEtaText(rawValue);
+      if (!textValue || textValue === "unknown") {
+        return 0;
+      }
+
+      if (["partial", "biraz", "biraz_dolu", "medium", "half"].includes(textValue)) {
+        return 1;
+      }
+
+      if (["full", "dolu", "tamamen_dolu"].includes(textValue)) {
+        return 2;
+      }
+
+      if (["empty", "bos"].includes(textValue)) {
+        return 0;
+      }
+
+      return 0;
+    }
+
+    function getDistanceActionLevelForEta(car) {
+      const rawValue = car?.distanceActionLevel ?? car?.distanceAction ?? car?.obstacleAction ?? car?.obstacleStatus;
+      const numericValue = Number(rawValue);
+
+      if (Number.isFinite(numericValue)) {
+        return Math.max(0, Math.min(3, Math.round(numericValue)));
+      }
+
+      const textValue = normalizeEtaText(rawValue);
+      if (["stop"].includes(textValue)) {
+        return 3;
+      }
+
+      if (["very_slow", "veryslow"].includes(textValue)) {
+        return 2;
+      }
+
+      if (["slow"].includes(textValue)) {
+        return 1;
+      }
+
+      if (["normal", "none", "no_read", "ok", ""].includes(textValue)) {
+        return 0;
+      }
+
+      return 0;
+    }
+
+    function getAvgPwmForEta(car) {
+      const avgPwm = Number(car?.avgPWM);
+      if (Number.isFinite(avgPwm)) {
+        return Math.max(0, avgPwm);
+      }
+
+      const leftPwm = Number(car?.leftPWM);
+      const rightPwm = Number(car?.rightPWM);
+      if (Number.isFinite(leftPwm) && Number.isFinite(rightPwm)) {
+        return Math.max(0, (leftPwm + rightPwm) / 2);
+      }
+
+      const leftSpeed = Number(car?.leftSpeed);
+      const rightSpeed = Number(car?.rightSpeed);
+      if (Number.isFinite(leftSpeed) && Number.isFinite(rightSpeed)) {
+        return Math.max(0, (leftSpeed + rightSpeed) / 2);
+      }
+
+      return Math.max(0, firstFiniteNumber(car?.baseSpeed));
+    }
+
+    function getLineLostForEta(car) {
+      const rawValue = car?.lineLost ?? car?.segmentLineLost;
+
+      if (typeof rawValue === "boolean") {
+        return rawValue ? 1 : 0;
+      }
+
+      const numericValue = Number(rawValue);
+      if (Number.isFinite(numericValue)) {
+        return numericValue > 0 ? 1 : 0;
+      }
+
+      const textValue = normalizeEtaText(rawValue);
+      if (["true", "lost", "yes", "evet"].includes(textValue)) {
+        return 1;
+      }
+
+      return normalizeEtaText(car?.lineCase) === "lost" ? 1 : 0;
+    }
+
+    function buildEtaPredictionInput(carId) {
+      const car = carsData?.[carId] || {};
+      const segmentIndex = getCurrentSegmentIndexForEta(car);
+      const segment = getRouteSegment(segmentIndex);
+      const segmentDistance = getSegmentDistanceForEta(segment, car);
+      const calibratedDurationSec = getCalibratedDurationSecForEta(segment, car);
+      const occupancyLevel = getOccupancyLevelForEta(car);
+      const distanceActionLevel = getDistanceActionLevelForEta(car);
+      const avgPWM = getAvgPwmForEta(car);
+      const lineLost = getLineLostForEta(car);
+
+      return {
+        carId,
+        segmentIndex,
+        rawInput: [
+          segmentIndex,
+          segmentDistance,
+          calibratedDurationSec,
+          occupancyLevel,
+          distanceActionLevel,
+          avgPWM,
+          lineLost
+        ],
+        featureObject: {
+          segmentIndex,
+          segmentDistance,
+          calibratedDurationSec,
+          occupancyLevel,
+          distanceActionLevel,
+          avgPWM,
+          lineLost
+        }
+      };
+    }
+
+    function getEtaNormalizationForCar(carId) {
+      return etaModelNormalizationsByCar[carId] || null;
+    }
+
+    function getEtaInputNormalizationStatsForCar(carId) {
+      const normalization = getEtaNormalizationForCar(carId);
+      return normalization?.input || normalization?.inputStats || null;
+    }
+
+    function getEtaOutputNormalizationStatsForCar(carId) {
+      const normalization = getEtaNormalizationForCar(carId);
+      return normalization?.output || normalization?.outputStats || null;
+    }
+
+    function getEtaPredictionStateForCar(carId) {
+      return etaPredictionStateByCar[carId] || {
+        status: "idle",
+        message: "",
+        carId: null,
+        predictedSec: null,
+        routeVersion: null,
+        input: null
+      };
+    }
+
+    function getEtaPredictionDisabledReasonForCar(carId) {
+      const tfLoaded = typeof window !== "undefined" && !!window.tf;
+      const activeVersion = Number(systemData?.activeRouteVersion || 0);
+      const modelInfo = getEtaModelInfoForCar(carId);
+      const normalization = getEtaNormalizationForCar(carId);
+      const memoryModelVersion = Number(normalization?.trainedRouteVersion || 0);
+      const predictionState = getEtaPredictionStateForCar(carId);
+
+      if (!tfLoaded) {
+        return "TensorFlow.js could not be loaded.";
+      }
+
+      if (!activeVersion) {
+        return "No active route version yet.";
+      }
+
+      if (!etaModelsByCar[carId] ||
+          !normalization ||
+          !getEtaInputNormalizationStatsForCar(carId) ||
+          !getEtaOutputNormalizationStatsForCar(carId)) {
+        return `Train ${carId} model first.`;
+      }
+
+      if (modelInfo.trained !== true) {
+        return `Train the ${carId} ETA model for the active route before prediction.`;
+      }
+
+      if (Number(modelInfo.trainedRouteVersion || 0) !== activeVersion ||
+          (memoryModelVersion > 0 && memoryModelVersion !== activeVersion)) {
+        return `${carId} model is old. Retrain for the current route version.`;
+      }
+
+      if (predictionState.status === "predicting") {
+        return "Predicting...";
+      }
+
+      return "";
+    }
+
+    function getEtaPredictionDisabledReason() {
+      return getEtaPredictionDisabledReasonForCar(selectedEtaCarId);
+    }
+
+    function setEtaPredictionStateForCar(carId, nextState) {
+      etaPredictionStateByCar[carId] = {
+        ...getEtaPredictionStateForCar(carId),
+        ...nextState
+      };
+    }
+
+    async function predictEtaNowForCar(carId) {
+      if (!EXPECTED_CARS.includes(carId)) {
+        return;
+      }
+
+      let inputData = null;
+      let inputTensor = null;
+      let predictionTensor = null;
+
+      setEtaPredictionStateForCar(carId, {
+        status: "predicting",
+        message: "Predicting...",
+        carId,
+        predictedSec: null,
+        routeVersion: Number(systemData?.activeRouteVersion || 0),
+        input: null
+      });
+      renderAll();
+
+      try {
+        const tfLib = window.tf;
+        const activeVersion = Number(systemData?.activeRouteVersion || 0);
+        const modelInfo = getEtaModelInfoForCar(carId);
+        const model = etaModelsByCar[carId];
+        const normalization = getEtaNormalizationForCar(carId);
+        const inputStats = getEtaInputNormalizationStatsForCar(carId);
+        const outputStats = getEtaOutputNormalizationStatsForCar(carId);
+
+        if (!tfLib) {
+          throw new Error("TensorFlow.js could not be loaded.");
+        }
+
+        if (!activeVersion) {
+          throw new Error("Train the ETA model for the active route before prediction.");
+        }
+
+        if (!model || !normalization || !inputStats || !outputStats || modelInfo.trained !== true) {
+          throw new Error(`Train the ${carId} ETA model for the active route before prediction.`);
+        }
+
+        if (Number(modelInfo.trainedRouteVersion || 0) !== activeVersion ||
+            Number(normalization?.trainedRouteVersion || 0) !== activeVersion) {
+          throw new Error(`${carId} ETA model was not trained for the active route version.`);
+        }
+
+        inputData = buildEtaPredictionInput(carId);
+        const normalizedInput = normalizeInputRow(inputData.rawInput, inputStats);
+
+        inputTensor = tfLib.tensor2d([normalizedInput]);
+        predictionTensor = model.predict(inputTensor);
+
+        const normalizedPrediction = predictionTensor.dataSync()[0];
+        const predictedSec = denormalizeOutput(normalizedPrediction, outputStats);
+        const roundedPrediction = Number(Math.max(0, Number(predictedSec || 0)).toFixed(1));
+
+        await update(ref(database, `cars/${carId}`), {
+          aiEtaEnabled: true,
+          aiEtaPredictionSec: roundedPrediction,
+          aiEtaRouteVersion: activeVersion,
+          aiEtaUpdatedAt: Date.now(),
+          aiEtaModelType: "TensorFlow.js Regression",
+          aiEtaModelScope: "car-based",
+          aiEtaModelCarId: carId,
+          aiEtaInput: inputData.featureObject,
+          aiEtaStatus: "ready"
+        });
+
+        setEtaPredictionStateForCar(carId, {
+          status: "ready",
+          message: `${carId}: AI ETA prediction written to Firebase.`,
+          carId,
+          predictedSec: roundedPrediction,
+          routeVersion: activeVersion,
+          input: inputData.featureObject
+        });
+        connectionStatus.innerText = `${carId}: AI ETA prediction written to Firebase.`;
+      } catch (error) {
+        const errorMessage = error?.message || "Prediction failed";
+
+        setEtaPredictionStateForCar(carId, {
+          status: "error",
+          message: "Prediction failed. " + errorMessage,
+          carId,
+          predictedSec: null,
+          routeVersion: Number(systemData?.activeRouteVersion || 0),
+          input: inputData?.featureObject || null
+        });
+        connectionStatus.innerText = "Prediction failed.";
+
+        try {
+          await update(ref(database, `cars/${carId}`), {
+            aiEtaStatus: "error",
+            aiEtaError: errorMessage,
+            aiEtaUpdatedAt: Date.now()
+          });
+        } catch (firebaseError) {
+          connectionStatus.innerText = "Prediction failed. Firebase error: " + firebaseError.message;
+        }
+      } finally {
+        if (inputTensor) {
+          inputTensor.dispose();
+        }
+
+        if (predictionTensor) {
+          predictionTensor.dispose();
+        }
+
+        renderAll();
+      }
+    }
+
+    async function predictEtaNow() {
+      await predictEtaNowForCar(selectedEtaCarId);
+    }
+
+    function isDeviceOnline(device) {
+      const lastSeen = Number(device?.lastSeen || 0);
+      return device?.online === true &&
+        Number.isFinite(lastSeen) &&
+        lastSeen > 0 &&
+        Date.now() - lastSeen <= OFFLINE_TIMEOUT_MS;
+    }
+
+    function getDeviceStatusItems() {
+      const carItems = EXPECTED_CARS.map(id => ({
+        id,
+        type: "Arac",
+        data: carsData?.[id] || {}
+      }));
+
+      const stationItems = EXPECTED_STATIONS.map(station => ({
+        id: station.id,
+        type: "Durak",
+        data: stationsData?.[station.id] || {}
+      }));
+
+      return [...carItems, ...stationItems];
+    }
+
+    function getOfflineDevices() {
+      return getDeviceStatusItems()
+        .filter(item => !isDeviceOnline(item.data))
+        .map(item => item.id);
+    }
+
+    function isCarEtaUsable(car) {
+      const mode = String(car?.mode || "").toLowerCase();
+
+      if (mode === "manual" || mode === "recovery") {
+        return false;
+      }
+
+      if (car?.positionKnown !== true || car?.etaValid !== true || car?.needsPositionConfirm === true) {
+        return false;
+      }
+
+      return true;
+    }
+
+    function shouldShowRecoveryButton(carId) {
+      const car = carsData?.[carId] || {};
+      const manual = manualControlsData?.[carId] || {};
+      const mode = String(car.mode || "").toLowerCase();
+
+      return manual.enabled === true ||
+        mode === "manual" ||
+        mode === "recovery" ||
+        car.needsPositionConfirm === true;
+    }
+
+    function getOccupancy(car) {
+      const occupancy = car?.occupancy || {};
+      const status = occupancy.status || car?.occupancyStatus || "unknown";
+      const color = occupancy.color || (
+        status === "full" ? "red" :
+        status === "partial" ? "yellow" :
+        status === "empty" ? "green" :
+        "gray"
+      );
+      const label = occupancy.label || (
+        status === "full" ? "Tamamen dolu" :
+        status === "partial" ? "Biraz dolu" :
+        status === "empty" ? "Bos" :
+        "Bilgi yok"
+      );
+
+      return {
+        status,
+        color,
+        label,
+        fsr1Raw: occupancy.fsr1Raw ?? car?.fsr1,
+        fsr2Raw: occupancy.fsr2Raw ?? car?.fsr2,
+        occupiedSeatCount: occupancy.occupiedSeatCount ?? "Bilgi yok"
+      };
+    }
+
+    function anyPhysicalCarFull() {
+      return EXPECTED_CARS.some(carId => getOccupancy(carsData?.[carId] || {}).status === "full");
+    }
+
+    function getTripCapacityState() {
+      const virtualCar4Active = anyPhysicalCarFull();
+      return {
+        virtualCar4Active,
+        activeTripCount: virtualCar4Active ? 4 : 3,
+        message: virtualCar4Active
+          ? "Sefer eklendi. Toplam aktif sefer: 4"
+          : "Sefer azaltildi. Toplam aktif sefer: 3"
+      };
+    }
+
+    function showTripAlert(message) {
+      if (tripAlertTimer) {
+        clearTimeout(tripAlertTimer);
+      }
+
+      tripAlert.innerText = message;
+      tripAlert.classList.remove("hidden");
+      tripAlertTimer = setTimeout(() => {
+        tripAlert.classList.add("hidden");
+      }, 10000);
+    }
+
+    function syncVirtualTripState() {
+      if (!auth.currentUser) {
+        return;
+      }
+
+      const state = getTripCapacityState();
+      const syncKey = `${state.activeTripCount}:${state.virtualCar4Active}`;
+
+      if (lastVirtualCar4Active === null) {
+        lastVirtualCar4Active = state.virtualCar4Active;
+      } else if (lastVirtualCar4Active !== state.virtualCar4Active) {
+        lastVirtualCar4Active = state.virtualCar4Active;
+        showTripAlert(state.message);
+      }
+
+      if (lastVirtualTripSyncKey === syncKey) {
+        return;
+      }
+
+      lastVirtualTripSyncKey = syncKey;
+      update(ref(database, "system"), {
+        activeTripCount: state.activeTripCount,
+        virtualCar4Active: state.virtualCar4Active,
+        lastTripChangeMessage: state.message,
+        lastTripChangeAt: Date.now()
+      }).catch(error => {
+        connectionStatus.innerText = "Virtual trip sync error: " + error.message;
+      });
+    }
+
+    function getStatusBadge(status) {
+      if (status === "moving") {
+        return `<span class="badge moving">moving</span>`;
+      }
+
+      if (status === "arrived") {
+        return `<span class="badge arrived">arrived</span>`;
+      }
+
+      if (status === "DISTANCE_STOP" || status === "STOP" || String(status || "").includes("STOP")) {
+        return `<span class="badge stop">${status}</span>`;
+      }
+
+      return `<span class="badge unknown">${status || "Bilgi yok"}</span>`;
+    }
+
+    function getActionBadge(action) {
+      if (!action) {
+        return `<span class="badge unknown">Bilgi yok</span>`;
+      }
+
+      if (action === "PID_FOLLOW" || action === "FOLLOW_CENTER" || action.includes("FOLLOW")) {
+        return `<span class="badge follow">${action}</span>`;
+      }
+
+      if (action.includes("SEARCH")) {
+        return `<span class="badge search">${action}</span>`;
+      }
+
+      if (action.includes("STOP")) {
+        return `<span class="badge stop">${action}</span>`;
+      }
+
+      return `<span class="badge unknown">${action}</span>`;
+    }
+
+    function getCarsForStationAndDirection(stationId, direction) {
+      const carsArray = Object.values(carsData || {});
+      const stopIndexes = STATION_STOP_MAP[stationId] || [];
+      const directionStopIndex = direction === "B" ? stopIndexes[1] : stopIndexes[0];
+
+      return carsArray
+        .filter(car => isCarEtaUsable(car))
+        .filter(car => {
+          if (directionStopIndex !== undefined && Number(car.nextStopIndex) === Number(directionStopIndex)) {
+            return true;
+          }
+
+          return car.nextStopIndex === undefined && car.nextStation === stationId && car.direction === direction;
+        })
+        .sort((a, b) => Number(getCarEtaValue(a) ?? 999999) - Number(getCarEtaValue(b) ?? 999999))
+        .slice(0, 3);
+    }
+
+    function createEtaBoxes(cars, fallbackDirectionData) {
+      let html = "";
+
+      if (cars.length > 0) {
+        cars.forEach(car => {
+          html += `
+            <div class="eta-box">
+              <span class="eta-car">${car.carId || "car"}</span>
+              ${formatEta(getCarEtaValue(car))}
+            </div>
+          `;
+        });
+
+        for (let i = cars.length; i < 3; i++) {
+          html += `<div class="eta-box empty-eta">-</div>`;
+        }
+
+        return html;
+      }
+
+      const eta1 = fallbackDirectionData?.eta1;
+      const eta2 = fallbackDirectionData?.eta2;
+      const eta3 = fallbackDirectionData?.eta3;
+
+      html += `<div class="eta-box empty-eta">${formatEta(eta1)}</div>`;
+      html += `<div class="eta-box empty-eta">${formatEta(eta2)}</div>`;
+      html += `<div class="eta-box empty-eta">${formatEta(eta3)}</div>`;
+
+      return html;
+    }
+
+    function fieldBox(label, value) {
+      return `
+        <div class="telemetry-box">
+          <div class="telemetry-label">${label}</div>
+          <div class="telemetry-value">${value}</div>
+        </div>
+      `;
+    }
+
+    function formatEntityTitle(id, fallbackName) {
+      if (fallbackName) {
+        return fallbackName;
+      }
+
+      const match = String(id || "").match(/^([a-zA-Z]+)(\d+)$/);
+      if (!match) {
+        return valueOrNoData(id);
+      }
+
+      return match[1].charAt(0).toUpperCase() + match[1].slice(1) + " " + match[2];
+    }
+
+    function renderSystemControl() {
+      const tripsStarted = systemData?.tripsStarted === true;
+
+      systemControlContainer.innerHTML = `
+        <div class="system-card">
+          <div class="system-grid">
+            ${fieldBox("system.mode", valueOrNoData(systemData?.mode))}
+            ${fieldBox("tripsStarted", boolText(systemData?.tripsStarted))}
+            ${fieldBox("allDevicesOnline", boolText(systemData?.allDevicesOnline))}
+            ${fieldBox("activeTripCount", valueOrNoData(systemData?.activeTripCount ?? getTripCapacityState().activeTripCount))}
+            ${fieldBox("virtualCar4Active", boolText(systemData?.virtualCar4Active ?? getTripCapacityState().virtualCar4Active))}
+            ${fieldBox("routeCalibrated", boolText(systemData?.routeCalibrated))}
+            ${fieldBox("Active Route Version", valueOrNoData(systemData?.activeRouteVersion))}
+            ${fieldBox("startedAt", formatTimestamp(systemData?.startedAt))}
+            ${fieldBox("stoppedAt", formatTimestamp(systemData?.stoppedAt))}
+            ${fieldBox("startCommandVersion", valueOrNoData(systemData?.startCommandVersion))}
+          </div>
+          <div class="system-actions">
+            <button
+              class="${tripsStarted ? "stop-trips-button" : "start-trips-button"}"
+              type="button"
+              data-system-toggle>
+              ${tripsStarted ? "Seferleri Sonlandir" : "Seferleri Baslat"}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDeviceStatus() {
+      const items = getDeviceStatusItems();
+
+      deviceStatusContainer.innerHTML = `
+        <div class="device-status-grid">
+          ${items.map(item => {
+            const online = isDeviceOnline(item.data);
+            return `
+              <div class="device-status-card ${online ? "online" : "offline"}">
+                <div class="device-status-name">
+                  <span>${item.type}: ${item.id}</span>
+                  <span class="device-pill ${online ? "online" : "offline"}">
+                    ${online ? "Bagli" : "Bagli Degil"}
+                  </span>
+                </div>
+                <div class="device-meta">Son gorulme: ${formatTimestamp(item.data?.lastSeen)}</div>
+                <div class="device-meta">Wi-Fi: ${boolText(item.data?.wifiConnected)} | Firebase: ${boolText(item.data?.firebaseConnected)}</div>
+                <div class="device-meta">IP: ${valueOrNoData(item.data?.ip)}</div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    function renderOccupancySummary() {
+      occupancyContainer.innerHTML = `
+        <div class="system-card">
+          <div class="system-grid">
+            ${EXPECTED_CARS.map(carId => {
+              const occupancy = getOccupancy(carsData?.[carId] || {});
+              return fieldBox(
+                carId,
+                `<div class="occupancy-row">
+                  <span>${occupancy.label}</span>
+                  <span class="status-dot ${occupancy.color}"></span>
+                </div>
+                <div class="device-meta">FSR1: ${valueOrNoData(occupancy.fsr1Raw)} | FSR2: ${valueOrNoData(occupancy.fsr2Raw)}</div>`
+              );
+            }).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTripCapacity() {
+      const state = getTripCapacityState();
+
+      tripCapacityContainer.innerHTML = `
+        <div class="system-card">
+          <div class="telemetry-grid">
+            ${fieldBox("Aktif Sefer Sayisi", state.activeTripCount)}
+            ${fieldBox("Sanal Ek Sefer", state.virtualCar4Active ? '<span class="badge arrived">Aktif</span>' : '<span class="badge unknown">Pasif</span>')}
+            ${fieldBox("Bilgi", state.virtualCar4Active ? "Yogunluk nedeniyle ek sefer eklendi." : "Toplam aktif sefer: 3")}
+            ${state.virtualCar4Active ? fieldBox("car4", "Sanal arac / Ek sefer") : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    function pidValue(carId, key, fallback) {
+      const value = carsData?.[carId]?.pid?.[key];
+      if (value === undefined || value === null || value === "") {
+        return fallback;
+      }
+
+      return value;
+    }
+
+    function renderPidSettings() {
+      if (pidSettingsContainer.contains(document.activeElement)) {
+        return;
+      }
+
+      pidSettingsContainer.innerHTML = `
+        <div class="pid-grid">
+          ${EXPECTED_CARS.map(carId => `
+            <div class="pid-card">
+              <h3>${carId} PID Ayarlari</h3>
+              <div class="pid-form-grid">
+                <label>Kp<input id="pid-${carId}-kp" type="number" step="0.001" value="${pidValue(carId, "kp", 35)}" /></label>
+                <label>Ki<input id="pid-${carId}-ki" type="number" step="0.001" value="${pidValue(carId, "ki", 0)}" /></label>
+                <label>Kd<input id="pid-${carId}-kd" type="number" step="0.001" value="${pidValue(carId, "kd", 20)}" /></label>
+                <label>Base Speed<input id="pid-${carId}-baseSpeed" type="number" min="0" max="1023" step="1" value="${pidValue(carId, "baseSpeed", 250)}" /></label>
+                <label>Max Speed<input id="pid-${carId}-maxSpeed" type="number" min="0" max="1023" step="1" value="${pidValue(carId, "maxSpeed", 1023)}" /></label>
+              </div>
+              <button class="pid-save-button" type="button" data-pid-save data-car-id="${carId}">Kaydet</button>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderRouteSummary() {
+      const trainedModelCount = EXPECTED_CARS.filter(carId => getEtaModelStatusForCar(carId) === "Trained").length;
+      const needsRetrainingCount = EXPECTED_CARS.filter(carId => getEtaModelStatusForCar(carId) === "Needs retraining").length;
+      const oldModelCount = EXPECTED_CARS.filter(carId => getEtaModelStatusForCar(carId) === "Old model").length;
+      const activeSampleCount = EXPECTED_CARS.reduce((total, carId) => {
+        return total + getActiveRouteTrainingSamplesForCar(carId).length;
+      }, 0);
+      const segments = routeData?.segments || {};
+      const segmentRows = Array.from({ length: 6 }, (_, index) => {
+        const segment = segments[String(index)] || {};
+        return fieldBox(
+          `Segment ${index}: stop${segment.from ?? index} -> stop${segment.to ?? ((index + 1) % 6)}`,
+          `Distance: ${valueOrNoData(segment.distance, " cm")} | Duration: ${formatDurationMs(segment.duration)}`
+        );
+      }).join("");
+
+      routeSummaryContainer.innerHTML = `
+        <div class="system-card">
+          <div class="telemetry-grid">
+            ${fieldBox("routeCalibrated", boolText(routeData?.routeCalibrated))}
+            ${fieldBox("Route Version", valueOrNoData(routeData?.routeVersion))}
+            ${fieldBox("measuredBy", valueOrNoData(routeData?.measuredBy))}
+            ${fieldBox("measuredAt", formatTimestamp(routeData?.measuredAt))}
+            ${fieldBox("totalDistance", valueOrNoData(routeData?.totalDistance, " cm"))}
+            ${fieldBox("totalDuration", formatDurationMs(routeData?.totalDuration))}
+            ${fieldBox("averageSegmentDuration", formatDurationMs(routeData?.averageSegmentDuration))}
+          </div>
+          <div class="sub-title">AI ETA Prediction</div>
+          <div class="telemetry-grid">
+            ${fieldBox("Model Scope", "Car-based")}
+            ${fieldBox("Trained Car Models", `${trainedModelCount}/${EXPECTED_CARS.length}`)}
+            ${fieldBox("Needs Retraining Models", valueOrNoData(needsRetrainingCount))}
+            ${fieldBox("Old Models", valueOrNoData(oldModelCount))}
+            ${fieldBox("Active Route Samples", valueOrNoData(activeSampleCount))}
+            ${fieldBox("Total Training Samples", valueOrNoData(countMlTrainingSamples()))}
+          </div>
+          <div class="sub-title">Segments</div>
+          <div class="telemetry-grid">
+            ${segmentRows}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAiTrainingPanel() {
+      if (!EXPECTED_CARS.includes(selectedEtaCarId)) {
+        selectedEtaCarId = "car1";
+      }
+
+      const carId = selectedEtaCarId;
+      const etaModelMeta = getEtaModelInfoForCar(carId);
+      const activeVersion = Number(systemData?.activeRouteVersion || 0);
+      const routeVersion = Number(routeData?.routeVersion || 0);
+      const activeSamples = getActiveRouteTrainingSamplesForCar(carId);
+      const validRows = getValidEtaTrainingRowsForCar(carId);
+      const totalSamples = getTotalTrainingSampleCountForCar(carId);
+      const trainingState = getEtaTrainingStateForCar(carId);
+      const predictionState = getEtaPredictionStateForCar(carId);
+      const status = getEtaModelStatusForCar(carId);
+      const statusBadge = `<span class="model-status ${modelStatusClass(status)}">${status}</span>`;
+      const sampleSummary = activeVersion
+        ? String(activeSamples.length)
+        : "No active route version yet";
+      const features = etaInputFeatures(etaModelMeta);
+      const tfLoaded = typeof window !== "undefined" && !!window.tf;
+      const trainDisabled = etaTrainingInProgressByCar[carId] ||
+        !tfLoaded ||
+        !activeVersion ||
+        validRows.length < ETA_MIN_TRAINING_SAMPLES;
+      const predictionDisabledReason = getEtaPredictionDisabledReasonForCar(carId);
+      const predictionDisabled = Boolean(predictionDisabledReason);
+      const predictionInputText = predictionState.input
+        ? ETA_INPUT_FEATURES
+          .map(feature => `${feature}: ${valueOrNoData(predictionState.input?.[feature])}`)
+          .join("<br>")
+        : "Bilgi yok";
+      const predictionEtaText = predictionState.predictedSec === undefined ||
+        predictionState.predictedSec === null
+        ? "Bilgi yok"
+        : `${predictionState.predictedSec}s`;
+      const predictionStatusText = predictionState.message ||
+        (predictionDisabledReason || "Ready");
+      const sampleWarning = activeVersion && validRows.length < ETA_MIN_TRAINING_SAMPLES
+        ? `<div class="ai-note ai-warning">${carId}: at least 10 valid samples are required. Current valid samples: ${validRows.length}/${ETA_MIN_TRAINING_SAMPLES}.</div>`
+        : "";
+      const tfWarning = tfLoaded
+        ? ""
+        : `<div class="ai-note ai-warning">TensorFlow.js could not be loaded.</div>`;
+      const predictionWarning = predictionDisabledReason && predictionDisabledReason !== "Predicting..."
+        ? `<div class="ai-note ai-warning">${predictionDisabledReason}</div>`
+        : "";
+      const carSelectorButtons = EXPECTED_CARS.map(expectedCarId => `
+        <button
+          class="ai-placeholder-button eta-car-model-button"
+          type="button"
+          data-eta-car-select="${expectedCarId}"
+          aria-pressed="${expectedCarId === carId ? "true" : "false"}">
+          ${expectedCarId}
+        </button>
+      `).join("");
+      const carModelSummary = EXPECTED_CARS.map(expectedCarId => {
+        const model = getEtaModelInfoForCar(expectedCarId);
+        const modelStatus = getEtaModelStatusForCar(expectedCarId);
+        const activeCarSamples = getActiveRouteTrainingSamplesForCar(expectedCarId).length;
+        return `<div class="mini-row"><strong>${expectedCarId}</strong> | ${modelStatus} | active samples: ${activeCarSamples} | MAE: ${formatAiMae(model?.mae)}</div>`;
+      }).join("");
+
+      aiTrainingContainer.innerHTML = `
+        <div class="system-card">
+          <div class="ai-training-layout">
+            <div>
+              <div class="telemetry-grid">
+                ${fieldBox("Selected Car", carId)}
+                ${fieldBox("Active Route Version", activeVersion || "No active route version yet")}
+                ${fieldBox("Route Version", routeVersion || "Bilgi yok")}
+                ${fieldBox("Car Model Status", statusBadge)}
+                ${fieldBox("Needs Retraining", boolText(etaModelMeta?.needsRetraining))}
+                ${fieldBox("Trained Route Version", valueOrNoData(etaModelMeta?.trainedRouteVersion))}
+                ${fieldBox("Training Samples For This Car And Active Route", sampleSummary)}
+                ${fieldBox("Valid Training Samples", activeVersion ? valueOrNoData(validRows.length) : "No active route version yet")}
+                ${fieldBox("Total Training Samples For This Car", valueOrNoData(totalSamples))}
+                ${fieldBox("Training State", trainingState.state)}
+                ${fieldBox("Last Training Message", trainingState.message)}
+                ${fieldBox("Last Trained At", formatAiTimestamp(etaModelMeta?.lastTrainedAt))}
+                ${fieldBox("Last Invalidated At", formatAiTimestamp(etaModelMeta?.lastInvalidatedAt))}
+                ${fieldBox("MAE", formatAiMae(etaModelMeta?.mae))}
+                ${fieldBox("Model Type", valueOrNoData(etaModelMeta?.modelType || "TensorFlow.js Regression"))}
+                ${fieldBox("Output Label", valueOrNoData(etaModelMeta?.outputLabel || "actualDurationSec"))}
+                ${fieldBox("Browser Model", etaModelsByCar[carId] ? "Loaded in memory" : "Not in memory")}
+                ${fieldBox("Prediction Status", predictionStatusText)}
+                ${fieldBox("Last Prediction Car", valueOrNoData(predictionState.carId))}
+                ${fieldBox("Last Prediction ETA", predictionEtaText)}
+                ${fieldBox("Last Prediction Route Version", valueOrNoData(predictionState.routeVersion))}
+                ${fieldBox("Last Prediction Input", predictionInputText)}
+              </div>
+              ${tfWarning}
+              ${sampleWarning}
+              ${predictionWarning}
+            </div>
+
+            <div>
+              <div class="sub-title">AI ETA Car Model</div>
+              <div class="system-actions">
+                ${carSelectorButtons}
+              </div>
+
+              <div class="sub-title">Car Model Summary</div>
+              <div class="ai-note">${carModelSummary}</div>
+
+              <div class="sub-title">Input Features</div>
+              <div class="feature-list">
+                ${features.map(feature => `<span class="feature-chip">${feature}</span>`).join("")}
+              </div>
+
+              <div class="system-actions">
+                <button class="ai-placeholder-button" type="button" data-ai-train-model ${trainDisabled ? "disabled" : ""}>
+                  ${etaTrainingInProgressByCar[carId] ? "Training..." : `Train ${carId} Model`}
+                </button>
+                <button class="ai-placeholder-button" type="button" data-ai-predict-now ${predictionDisabled ? "disabled" : ""}>
+                  ${predictionState.status === "predicting" ? "Predicting..." : `Predict ${carId} ETA Now`}
+                </button>
+              </div>
+              <div class="ai-note">Each car model uses only its own /mlTrainingData/${carId} samples. Browser models are kept in memory for this demo; retrain after refreshing the page.</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function getManualSpeedValue(carId) {
+      const input = document.getElementById(`manualSpeed-${carId}`);
+      const fallbackSpeed = manualControlsData?.[carId]?.speed ?? 300;
+      const rawSpeed = Number(input?.value ?? fallbackSpeed);
+
+      if (!Number.isFinite(rawSpeed)) {
+        return 300;
+      }
+
+      return Math.max(0, Math.min(1023, Math.round(rawSpeed)));
+    }
+
+    async function writeManualControl(carId, enabled, command) {
+      const speed = getManualSpeedValue(carId);
+      const now = Date.now();
+
+      await set(ref(database, `manualControls/${carId}`), {
+        enabled,
+        command,
+        speed,
+        updatedAt: now,
+        updatedBy: auth.currentUser?.email || "unknown"
+      });
+
+      if (enabled) {
+        await update(ref(database, `cars/${carId}`), {
+          mode: "manual",
+          positionKnown: false,
+          etaValid: false,
+          needsPositionConfirm: true,
+          expectedNextStop: null,
+          eta: null,
+          etaToNextStop: null,
+          manualModeRequestedAt: now
+        });
+      } else {
+        await update(ref(database, `cars/${carId}`), {
+          positionKnown: false,
+          etaValid: false,
+          needsPositionConfirm: true,
+          expectedNextStop: null,
+          eta: null,
+          etaToNextStop: null,
+          manualModeDisabledAt: now
+        });
+      }
+    }
+
+    async function sendCarCommand(carId, command, mode, extra = {}) {
+      const now = Date.now();
+
+      await set(ref(database, `commands/${carId}`), {
+        mode,
+        command,
+        ...extra,
+        commandVersion: now,
+        updatedAt: now,
+        updatedBy: auth.currentUser?.email || "unknown"
+      });
+    }
+
+    async function requestRecoveryMode(carId, expectedNextStop) {
+      const now = Date.now();
+
+      await set(ref(database, `manualControls/${carId}`), {
+        enabled: false,
+        command: "STOP",
+        speed: manualControlsData?.[carId]?.speed ?? 300,
+        updatedAt: now,
+        updatedBy: auth.currentUser?.email || "unknown"
+      });
+
+      await update(ref(database, `cars/${carId}`), {
+        mode: "recovery",
+        expectedNextStop,
+        positionKnown: false,
+        etaValid: false,
+        needsPositionConfirm: false,
+        eta: null,
+        etaToNextStop: null,
+        recoveryRequestedAt: now
+      });
+
+      await sendCarCommand(carId, "START_RECOVERY", "recovery", { expectedNextStop });
+    }
+
+    async function requestStartTrips() {
+      const offlineDevices = getOfflineDevices();
+
+      if (offlineDevices.length > 0) {
+        const shouldStart = window.confirm(
+          "Bazi ESP cihazlari bagli degil: " +
+          offlineDevices.join(", ") +
+          ". Yine de seferleri baslatmak istiyor musunuz?"
+        );
+
+        if (!shouldStart) {
+          return;
+        }
+      }
+
+      await startTrips();
+    }
+
+    function readPidInput(carId, key, fallback) {
+      const input = document.getElementById(`pid-${carId}-${key}`);
+      const value = Number(input?.value);
+
+      if (!Number.isFinite(value)) {
+        return fallback;
+      }
+
+      return value;
+    }
+
+    async function savePidSettings(carId) {
+      const now = Date.now();
+      const pid = {
+        kp: readPidInput(carId, "kp", 35),
+        ki: readPidInput(carId, "ki", 0),
+        kd: readPidInput(carId, "kd", 20),
+        baseSpeed: Math.max(0, Math.min(1023, Math.round(readPidInput(carId, "baseSpeed", 250)))),
+        maxSpeed: Math.max(0, Math.min(1023, Math.round(readPidInput(carId, "maxSpeed", 1023)))),
+        updatedAt: now,
+        updatedBy: auth.currentUser?.email || "unknown"
+      };
+
+      await set(ref(database, `cars/${carId}/pid`), pid);
+      showTripAlert(`${carId} PID ayarlari kaydedildi.`);
+    }
+
+    async function startTrips() {
+      const now = Date.now();
+      const tripState = getTripCapacityState();
+
+      await set(ref(database, "system"), {
+        mode: "service",
+        tripsStarted: true,
+        allDevicesOnline: getOfflineDevices().length === 0,
+        activeTripCount: tripState.activeTripCount,
+        virtualCar4Active: tripState.virtualCar4Active,
+        lastTripChangeMessage: tripState.message,
+        lastTripChangeAt: now,
+        routeCalibrated: routeData?.routeCalibrated === true,
+        startedAt: now,
+        stoppedAt: systemData?.stoppedAt || 0,
+        lastStartCommandAt: now,
+        startCommandVersion: now
+      });
+
+      await sendCarCommand("car1", "START_SERVICE", "service");
+    }
+
+    async function stopTrips() {
+      const now = Date.now();
+
+      await update(ref(database, "system"), {
+        mode: "stopped",
+        tripsStarted: false,
+        stoppedAt: now
+      });
+
+      await Promise.all(EXPECTED_CARS.map(carId => sendCarCommand(carId, "STOP", "stopped")));
+    }
+
+    function maybeStartStagedVehicles() {
+      if (systemData?.tripsStarted !== true) {
+        return;
+      }
+
+      const car1Stops = Number(carsData?.car1?.serviceStopCount || 0);
+      const car2Stops = Number(carsData?.car2?.serviceStopCount || 0);
+      const car2Command = commandsData?.car2?.command;
+      const car3Command = commandsData?.car3?.command;
+
+      if (car1Stops >= 2 && carsData?.car2?.serviceActive !== true && car2Command !== "START_SERVICE") {
+        sendCarCommand("car2", "START_SERVICE", "service").catch(error => {
+          connectionStatus.innerText = "Car2 start error: " + error.message;
+        });
+      }
+
+      if (car2Stops >= 2 && carsData?.car3?.serviceActive !== true && car3Command !== "START_SERVICE") {
+        sendCarCommand("car3", "START_SERVICE", "service").catch(error => {
+          connectionStatus.innerText = "Car3 start error: " + error.message;
+        });
+      }
+    }
+
+    function getCarEtaValue(car) {
+      if (!isCarEtaUsable(car)) {
+        return null;
+      }
+
+      if (car?.etaToNextStop !== undefined && car?.etaToNextStop !== null && car?.etaToNextStop !== "") {
+        return car.etaToNextStop;
+      }
+
+      if (car?.eta !== undefined && car?.eta !== null && car?.eta !== "") {
+        return car.eta;
+      }
+
+      const nextStopIndex = car?.nextStopIndex;
+      const segment = routeData?.segments?.[String(nextStopIndex)];
+      if (segment?.duration) {
+        return Math.round(Number(segment.duration) / 1000);
+      }
+
+      return null;
+    }
+
+    function renderCarsGrid() {
+      const physicalCarsHtml = EXPECTED_CARS.map(carId => {
+        const car = carsData?.[carId] || {};
+        const manual = manualControlsData?.[carId] || {};
+        const manualActive = manual.enabled === true;
+        const recoveryNeeded = shouldShowRecoveryButton(carId);
+        const online = isDeviceOnline(car);
+        const occupancy = getOccupancy(car);
+        const isActive = selectedType === "car" && selectedId === carId;
+
+        return `
+          <article class="panel-card ${isActive ? "active" : ""}" data-type="car" data-id="${carId}">
+            <div class="card-title">
+              <span class="card-name">${car.carId || carId}</span>
+              <span class="small-id">${manualActive ? '<span class="badge manual-badge">MANUAL MODE</span>' : carId}</span>
+            </div>
+            <div class="mini-row">Baglanti: <span class="device-pill ${online ? "online" : "offline"}">${online ? "Bagli" : "Bagli Degil"}</span></div>
+            <div class="mini-row">Status: ${getStatusBadge(car.status)}</div>
+            <div class="mini-row">Manual: ${manualActive ? '<span class="badge manual-badge">ACTIVE</span>' : '<span class="badge unknown">OFF</span>'}</div>
+            <div class="mini-row">Mode: ${valueOrNoData(car.mode)}</div>
+            <div class="mini-row">Konum: ${isCarEtaUsable(car) ? '<span class="badge arrived">Guvenilir</span>' : '<span class="badge stop">Onay Gerekli</span>'}</div>
+            <div class="mini-row">Doluluk: <span class="status-dot ${occupancy.color}"></span> ${occupancy.label}</div>
+            <div class="mini-row">Service: ${boolText(car.serviceActive)} | Calibration: ${boolText(car.calibrationActive)}</div>
+            <div class="mini-row">Action: ${getActionBadge(car.action)}</div>
+            <div class="mini-row">Next Station: ${valueOrNoData(car.nextStation)}</div>
+            <div class="mini-row">ETA: ${formatEta(getCarEtaValue(car))}</div>
+            ${recoveryNeeded ? `
+              <div class="system-actions">
+                <button class="recovery-button" type="button" data-recovery-open data-car-id="${carId}">
+                  Otomatik Moda Don
+                </button>
+              </div>
+            ` : ""}
+          </article>
+        `;
+      }).join("");
+
+      const tripState = getTripCapacityState();
+      const virtualHtml = tripState.virtualCar4Active ? `
+        <article class="panel-card">
+          <div class="card-title">
+            <span class="card-name">car4</span>
+            <span class="small-id">Sanal</span>
+          </div>
+          <div class="mini-row">Ek sefer eklendi</div>
+          <div class="mini-row">ETA: -</div>
+          <div class="mini-row">Sebep: En az bir arac tamamen dolu</div>
+        </article>
+      ` : "";
+
+      carsGrid.innerHTML = physicalCarsHtml + virtualHtml;
+    }
+
+    function renderStationsGrid() {
+      stationsGrid.innerHTML = EXPECTED_STATIONS.map(expectedStation => {
+        const station = stationsData?.[expectedStation.id] || {};
+        const stationName = station.name || expectedStation.name;
+        const online = isDeviceOnline(station);
+        const isActive = selectedType === "station" && selectedId === expectedStation.id;
+
+        return `
+          <article class="panel-card ${isActive ? "active" : ""}" data-type="station" data-id="${expectedStation.id}">
+            <div class="card-title">
+              <span class="card-name">${stationName}</span>
+              <span class="small-id">${expectedStation.id}</span>
+            </div>
+            <div class="mini-row">Baglanti: <span class="device-pill ${online ? "online" : "offline"}">${online ? "Bagli" : "Bagli Degil"}</span></div>
+            <div class="mini-row">Emergency: ${boolText(station.emergency)}</div>
+            <div class="mini-row">A Yonu: ${createEtaBoxes(getCarsForStationAndDirection(expectedStation.id, "A"), station.directionA)}</div>
+            <div class="mini-row">B Yonu: ${createEtaBoxes(getCarsForStationAndDirection(expectedStation.id, "B"), station.directionB)}</div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderCarDetail(carId) {
+      const car = carsData?.[carId] || {};
+      const manual = manualControlsData?.[carId] || {};
+      const isManualEnabled = manual.enabled === true;
+      const manualSpeed = manual.speed ?? car.manualSpeed ?? 300;
+      const manualDisabled = isManualEnabled ? "" : "disabled";
+      const recoveryNeeded = shouldShowRecoveryButton(carId);
+      const title = formatEntityTitle(carId, car.carId);
+      const occupancy = getOccupancy(car);
+
+      detailContent.innerHTML = `
+        <div class="detail-header">
+          <h2>${title} Detail</h2>
+          <div class="system-actions">
+            <button
+              class="calibration-button"
+              type="button"
+              data-calibration-command
+              data-car-id="${carId}">
+              Mesafe ve Sure Olcme Turu
+            </button>
+            <button
+              class="manual-mode-button ${isManualEnabled ? "manual-enabled" : ""}"
+              type="button"
+              data-manual-toggle
+              data-car-id="${carId}">
+              ${isManualEnabled ? "Manueli Kapat" : "Manuel Kontrole Gec"}
+            </button>
+            ${recoveryNeeded ? `
+              <button
+                class="recovery-button"
+                type="button"
+                data-recovery-open
+                data-car-id="${carId}">
+                Otomatik Moda Don
+              </button>
+            ` : ""}
+          </div>
+        </div>
+
+        <div class="sub-title">Manuel Kontrol</div>
+        <div class="manual-panel">
+          <div class="manual-warning">
+            Dikkat: Manuel mod aktifken arac QTR, mesafe sensoru ve otomatik guvenlik kararlarini dinlemez.
+          </div>
+          <div class="telemetry-grid">
+            ${fieldBox("Manuel Mod Durumu", isManualEnabled ? '<span class="badge manual-badge">Aktif</span>' : '<span class="badge unknown">Kapali</span>')}
+            ${fieldBox("Son Komut", valueOrNoData(manual.command))}
+            ${fieldBox("Son Guncelleyen", valueOrNoData(manual.updatedBy))}
+          </div>
+
+          <div class="manual-speed-row">
+            <label for="manualSpeed-${carId}">Manuel Hiz PWM</label>
+            <input id="manualSpeed-${carId}" type="number" min="0" max="1023" value="${manualSpeed}" />
+          </div>
+
+          <div class="manual-controls">
+            <button class="forward" type="button" data-manual-command="FORWARD" data-car-id="${carId}" ${manualDisabled}>Ileri</button>
+            <button type="button" data-manual-command="LEFT" data-car-id="${carId}" ${manualDisabled}>Sol</button>
+            <button type="button" data-manual-command="STOP" data-car-id="${carId}" ${manualDisabled}>Dur</button>
+            <button type="button" data-manual-command="RIGHT" data-car-id="${carId}" ${manualDisabled}>Sag</button>
+            <button class="backward" type="button" data-manual-command="BACKWARD" data-car-id="${carId}" ${manualDisabled}>Geri</button>
+          </div>
+        </div>
+
+        <div class="sub-title">Genel Bilgi</div>
+        <div class="telemetry-grid">
+          ${fieldBox("Car ID", valueOrNoData(car.carId || carId))}
+          ${fieldBox("online", boolText(car.online))}
+          ${fieldBox("lastSeen", formatTimestamp(car.lastSeen))}
+          ${fieldBox("wifiConnected", boolText(car.wifiConnected))}
+          ${fieldBox("firebaseConnected", boolText(car.firebaseConnected))}
+          ${fieldBox("ip", valueOrNoData(car.ip))}
+          ${fieldBox("Arac Modu", valueOrNoData(car.mode))}
+          ${fieldBox("Status", getStatusBadge(car.status))}
+          ${fieldBox("active", boolText(car.active))}
+          ${fieldBox("calibrationActive", boolText(car.calibrationActive))}
+          ${fieldBox("serviceActive", boolText(car.serviceActive))}
+          ${fieldBox("Direction", valueOrNoData(car.direction))}
+          ${fieldBox("Next Station", valueOrNoData(car.nextStation))}
+          ${fieldBox("ETA", formatEta(getCarEtaValue(car)))}
+          ${fieldBox("Arrived", boolText(car.arrived))}
+          ${fieldBox("Action", valueOrNoData(car.action))}
+        </div>
+
+        <div class="sub-title">Doluluk</div>
+        <div class="telemetry-grid">
+          ${fieldBox("Durum", `<div class="occupancy-row"><span>${occupancy.label}</span><span class="status-dot ${occupancy.color}"></span></div>`)}
+          ${fieldBox("fsr1Raw", valueOrNoData(occupancy.fsr1Raw))}
+          ${fieldBox("fsr2Raw", valueOrNoData(occupancy.fsr2Raw))}
+          ${fieldBox("occupiedSeatCount", valueOrNoData(occupancy.occupiedSeatCount))}
+          ${fieldBox("fsr1Occupied", boolText(car.occupancy?.fsr1Occupied))}
+          ${fieldBox("fsr2Occupied", boolText(car.occupancy?.fsr2Occupied))}
+          ${fieldBox("fsrThreshold", valueOrNoData(car.occupancy?.fsrThreshold))}
+          ${fieldBox("adsReady", boolText(car.occupancy?.adsReady))}
+        </div>
+
+        <div class="sub-title">Sefer / Rota Durumu</div>
+        <div class="telemetry-grid">
+          ${fieldBox("positionKnown", boolText(car.positionKnown))}
+          ${fieldBox("etaValid", boolText(car.etaValid))}
+          ${fieldBox("needsPositionConfirm", boolText(car.needsPositionConfirm))}
+          ${fieldBox("currentStop", valueOrNoData(car.currentStop))}
+          ${fieldBox("nextStop", valueOrNoData(car.nextStop))}
+          ${fieldBox("expectedNextStop", valueOrNoData(car.expectedNextStop))}
+          ${fieldBox("currentStopIndex", valueOrNoData(car.currentStopIndex))}
+          ${fieldBox("nextStopIndex", valueOrNoData(car.nextStopIndex))}
+          ${fieldBox("serviceStopCount", valueOrNoData(car.serviceStopCount))}
+          ${fieldBox("hallRaw", valueOrNoData(car.hallRaw))}
+          ${fieldBox("hallDetected", boolText(car.hallDetected))}
+          ${fieldBox("lastHallTime", valueOrNoData(car.lastHallTime))}
+          ${fieldBox("encoderDistance", valueOrNoData(car.encoderDistance, " cm"))}
+          ${fieldBox("currentSegmentDistance", valueOrNoData(car.currentSegmentDistance, " cm"))}
+          ${fieldBox("currentSegmentDuration", formatDurationMs(car.currentSegmentDuration))}
+          ${fieldBox("etaToNextStop", formatEta(car.etaToNextStop))}
+          ${fieldBox("calibrationStarted", boolText(car.calibrationStarted))}
+          ${fieldBox("calibrationCompleted", boolText(car.calibrationCompleted))}
+          ${fieldBox("calibrationHallCount", valueOrNoData(car.calibrationHallCount))}
+          ${fieldBox("routeTotalDistance", valueOrNoData(car.routeTotalDistance, " cm"))}
+          ${fieldBox("routeTotalDuration", formatDurationMs(car.routeTotalDuration))}
+          ${fieldBox("averageSegmentDuration", formatDurationMs(car.averageSegmentDuration))}
+        </div>
+
+        <div class="sub-title">Route Calibration Detay</div>
+        <div class="telemetry-grid">
+          ${fieldBox("route.routeCalibrated", boolText(routeData?.routeCalibrated))}
+          ${fieldBox("route.measuredBy", valueOrNoData(routeData?.measuredBy))}
+          ${fieldBox("route.totalDuration", formatDurationMs(routeData?.totalDuration))}
+          ${fieldBox("route.averageSegmentDuration", formatDurationMs(routeData?.averageSegmentDuration))}
+        </div>
+
+        <div class="sub-title">Manuel Kontrol Telemetri</div>
+        <div class="telemetry-grid">
+          ${fieldBox("manualControls enabled", boolText(manual.enabled))}
+          ${fieldBox("manualControls command", valueOrNoData(manual.command))}
+          ${fieldBox("manualControls speed", valueOrNoData(manual.speed))}
+          ${fieldBox("manualControls updatedAt", formatTimestamp(manual.updatedAt))}
+          ${fieldBox("manualControls updatedBy", valueOrNoData(manual.updatedBy))}
+          ${fieldBox("car.manualModeEnabled", boolText(car.manualModeEnabled))}
+          ${fieldBox("car.manualCommand", valueOrNoData(car.manualCommand))}
+          ${fieldBox("car.manualSpeed", valueOrNoData(car.manualSpeed))}
+          ${fieldBox("car.manualStatusText", valueOrNoData(car.manualStatusText))}
+          ${fieldBox("car.manualLastHttpCode", valueOrNoData(car.manualLastHttpCode))}
+        </div>
+
+        <div class="sub-title">Cizgi Takibi</div>
+        <div class="telemetry-grid">
+          ${fieldBox("L", valueOrNoData(car.line?.L ?? car.L))}
+          ${fieldBox("M", valueOrNoData(car.line?.M ?? car.M))}
+          ${fieldBox("R", valueOrNoData(car.line?.R ?? car.R))}
+          ${fieldBox("lineFound", boolText(car.lineFound))}
+          ${fieldBox("lineError", valueOrNoData(car.lineError))}
+          ${fieldBox("correction", valueOrNoData(car.correction))}
+          ${fieldBox("lineCase", valueOrNoData(car.lineCase))}
+          ${fieldBox("turnStage", valueOrNoData(car.turnStage))}
+          ${fieldBox("rawPCF", valueOrNoData(car.rawPCF))}
+          ${fieldBox("lastTurnDirection", valueOrNoData(car.lastTurnDirection))}
+        </div>
+
+        <div class="sub-title">PID / PD</div>
+        <div class="telemetry-grid">
+          ${fieldBox("pidError", valueOrNoData(car.pidError))}
+          ${fieldBox("lastPidError", valueOrNoData(car.lastPidError))}
+          ${fieldBox("pidCorrection", valueOrNoData(car.pidCorrection))}
+          ${fieldBox("Kp", valueOrNoData(car.Kp))}
+          ${fieldBox("Ki", valueOrNoData(car.Ki))}
+          ${fieldBox("Kd", valueOrNoData(car.Kd))}
+          ${fieldBox("pid.kp", valueOrNoData(car.pid?.kp))}
+          ${fieldBox("pid.ki", valueOrNoData(car.pid?.ki))}
+          ${fieldBox("pid.kd", valueOrNoData(car.pid?.kd))}
+          ${fieldBox("pid.baseSpeed", valueOrNoData(car.pid?.baseSpeed))}
+          ${fieldBox("pid.maxSpeed", valueOrNoData(car.pid?.maxSpeed))}
+          ${fieldBox("pid.updatedAt", formatTimestamp(car.pid?.updatedAt))}
+        </div>
+
+        <div class="sub-title">HC-SR04 Mesafe</div>
+        <div class="telemetry-grid">
+          ${fieldBox("distanceCm", formatDistance(car.distanceCm))}
+          ${fieldBox("distanceAction", valueOrNoData(car.distanceAction))}
+          ${fieldBox("distanceStop", boolText(car.distanceStop))}
+        </div>
+
+        <div class="sub-title">Motor / PWM</div>
+        <div class="telemetry-grid">
+          ${fieldBox("baseSpeed", valueOrNoData(car.baseSpeed))}
+          ${fieldBox("targetLeftPWM", valueOrNoData(car.targetLeftPWM))}
+          ${fieldBox("targetRightPWM", valueOrNoData(car.targetRightPWM))}
+          ${fieldBox("leftPWM", valueOrNoData(car.motor?.leftPWM ?? car.leftPWM))}
+          ${fieldBox("rightPWM", valueOrNoData(car.motor?.rightPWM ?? car.rightPWM))}
+          ${fieldBox("leftBoostActive", boolText(car.leftBoostActive))}
+          ${fieldBox("rightBoostActive", boolText(car.rightBoostActive))}
+        </div>
+
+        <div class="sub-title">Hall Sensor / Durak Algilama</div>
+        <div class="telemetry-grid">
+          ${fieldBox("hallStatus", valueOrNoData(car.hall?.status ?? car.hallStatus))}
+          ${fieldBox("stationDetected", boolText(car.hall?.stationDetected ?? car.stationDetected))}
+        </div>
+
+        <div class="sub-title">FSR / Kapasite</div>
+        <div class="telemetry-grid">
+          ${fieldBox("fsr1", valueOrNoData(car.fsr?.fsr1 ?? car.fsr1))}
+          ${fieldBox("fsr2", valueOrNoData(car.fsr?.fsr2 ?? car.fsr2))}
+          ${fieldBox("capacity", valueOrNoData(car.capacity, "%"))}
+          ${fieldBox("fsrStatus", valueOrNoData(car.fsr?.status ?? car.fsrStatus))}
+        </div>
+
+        <div class="sub-title">Encoder</div>
+        <div class="telemetry-grid">
+          ${fieldBox("encoderEnabled", boolText(car.encoder?.enabled ?? car.encoderEnabled))}
+          ${fieldBox("leftEncoderDelta", valueOrNoData(car.encoder?.leftDelta ?? car.leftEncoderDelta))}
+          ${fieldBox("rightEncoderDelta", valueOrNoData(car.encoder?.rightDelta ?? car.rightEncoderDelta))}
+          ${fieldBox("encoderTrim", valueOrNoData(car.encoder?.trim ?? car.encoderTrim))}
+        </div>
+      `;
+    }
+
+    function renderStationDetail(stationId) {
+      const expected = EXPECTED_STATIONS.find(station => station.id === stationId);
+      const station = stationsData?.[stationId] || {};
+      const stationName = station.name || expected?.name || stationId;
+      const stationStops = STATION_STOP_MAP[stationId] || [];
+      const approachingCars = Object.values(carsData || {})
+        .filter(car => isCarEtaUsable(car))
+        .filter(car => {
+          if (car.nextStopIndex !== undefined && car.nextStopIndex !== null && car.nextStopIndex !== "") {
+            return stationStops.map(Number).includes(Number(car.nextStopIndex));
+          }
+
+          return car.nextStation === stationId;
+        })
+        .sort((a, b) => Number(getCarEtaValue(a) ?? 999999) - Number(getCarEtaValue(b) ?? 999999));
+
+      detailContent.innerHTML = `
+        <div class="detail-header">
+          <h2>${stationName} Detail</h2>
+          <span class="small-id">${stationId}</span>
+        </div>
+
+        <div class="sub-title">Station Bilgisi</div>
+        <div class="telemetry-grid">
+          ${fieldBox("Station ID", valueOrNoData(stationId))}
+          ${fieldBox("Station Name", valueOrNoData(stationName))}
+          ${fieldBox("online", boolText(station.online))}
+          ${fieldBox("lastSeen", formatTimestamp(station.lastSeen))}
+          ${fieldBox("wifiConnected", boolText(station.wifiConnected))}
+          ${fieldBox("firebaseConnected", boolText(station.firebaseConnected))}
+          ${fieldBox("ip", valueOrNoData(station.ip))}
+          ${fieldBox("Emergency Status", boolText(station.emergency))}
+          ${fieldBox("Stop Indexes", stationStops.length ? stationStops.map(stop => "stop" + stop).join(", ") : "Bilgi yok")}
+        </div>
+
+        <div class="sub-title">A Yonu ETA</div>
+        <div class="eta-list">
+          ${createEtaBoxes(getCarsForStationAndDirection(stationId, "A"), station.directionA)}
+        </div>
+
+        <div class="sub-title">B Yonu ETA</div>
+        <div class="eta-list">
+          ${createEtaBoxes(getCarsForStationAndDirection(stationId, "B"), station.directionB)}
+        </div>
+
+        <div class="sub-title">Bu Istasyona Yaklasan Araclar</div>
+        <div class="telemetry-grid">
+          ${
+            approachingCars.length
+              ? approachingCars.map(car => fieldBox(
+                  car.carId || "car",
+                  `Next stop: ${valueOrNoData(car.nextStopIndex)} | ETA: ${formatEta(getCarEtaValue(car))} | Status: ${valueOrNoData(car.status)}`
+                )).join("")
+              : fieldBox("Arac", "Bilgi yok")
+          }
+        </div>
+      `;
+    }
+
+    function renderSelectedDetail() {
+      if (selectedType === "car" && selectedId) {
+        renderCarDetail(selectedId);
+      } else if (selectedType === "station" && selectedId) {
+        renderStationDetail(selectedId);
+      } else {
+        detailContent.innerHTML = "Bir kart secildiginde detaylar burada gorunecek.";
+      }
+    }
+
+    function renderAll() {
+      maybeStartStagedVehicles();
+      syncVirtualTripState();
+
+      if (currentView === "dashboard") {
+        dashboardView.classList.remove("hidden");
+        detailView.classList.add("hidden");
+        renderDeviceStatus();
+        renderSystemControl();
+        renderOccupancySummary();
+        renderTripCapacity();
+        renderPidSettings();
+        renderRouteSummary();
+        renderAiTrainingPanel();
+        renderCarsGrid();
+        renderStationsGrid();
+      } else {
+        dashboardView.classList.add("hidden");
+        detailView.classList.remove("hidden");
+        renderSelectedDetail();
+      }
+
+      connectionStatus.innerText = "Firebase: Live";
+      lastUpdate.innerText = "Last update: " + new Date().toLocaleTimeString();
+    }
+
+    function startDataListeners() {
+      if (systemUnsubscribe ||
+          carsUnsubscribe ||
+          stationsUnsubscribe ||
+          manualControlsUnsubscribe ||
+          commandsUnsubscribe ||
+          routeUnsubscribe ||
+          aiModelsUnsubscribe ||
+          mlTrainingDataUnsubscribe) {
+        return;
+      }
+
+      systemUnsubscribe = onValue(ref(database, "system"), (snapshot) => {
+        systemData = snapshot.val() || {};
+        renderAll();
+      }, (error) => {
+        connectionStatus.innerText = "System Firebase error: " + error.message;
+      });
+
+      stationsUnsubscribe = onValue(ref(database, "stations"), (snapshot) => {
+        stationsData = snapshot.val() || {};
+        renderAll();
+      }, (error) => {
+        connectionStatus.innerText = "Stations Firebase error: " + error.message;
+      });
+
+      carsUnsubscribe = onValue(ref(database, "cars"), (snapshot) => {
+        carsData = snapshot.val() || {};
+        renderAll();
+      }, (error) => {
+        connectionStatus.innerText = "Cars Firebase error: " + error.message;
+      });
+
+      manualControlsUnsubscribe = onValue(ref(database, "manualControls"), (snapshot) => {
+        manualControlsData = snapshot.val() || {};
+        renderAll();
+      }, (error) => {
+        connectionStatus.innerText = "Manual controls Firebase error: " + error.message;
+      });
+
+      commandsUnsubscribe = onValue(ref(database, "commands"), (snapshot) => {
+        commandsData = snapshot.val() || {};
+        renderAll();
+      }, (error) => {
+        connectionStatus.innerText = "Commands Firebase error: " + error.message;
+      });
+
+      routeUnsubscribe = onValue(ref(database, "route"), (snapshot) => {
+        routeData = snapshot.val() || {};
+        renderAll();
+      }, (error) => {
+        connectionStatus.innerText = "Route Firebase error: " + error.message;
+      });
+
+      aiModelsUnsubscribe = onValue(ref(database, "aiModels"), (snapshot) => {
+        aiModelsData = snapshot.val() || {};
+        renderAll();
+      }, (error) => {
+        connectionStatus.innerText = "AI models Firebase error: " + error.message;
+      });
+
+      mlTrainingDataUnsubscribe = onValue(ref(database, "mlTrainingData"), (snapshot) => {
+        mlTrainingData = snapshot.val() || {};
+        renderAll();
+      }, (error) => {
+        connectionStatus.innerText = "ML training data Firebase error: " + error.message;
+      });
+    }
+
+    function stopDataListeners() {
+      if (systemUnsubscribe) {
+        systemUnsubscribe();
+        systemUnsubscribe = null;
+      }
+
+      if (carsUnsubscribe) {
+        carsUnsubscribe();
+        carsUnsubscribe = null;
+      }
+
+      if (stationsUnsubscribe) {
+        stationsUnsubscribe();
+        stationsUnsubscribe = null;
+      }
+
+      if (manualControlsUnsubscribe) {
+        manualControlsUnsubscribe();
+        manualControlsUnsubscribe = null;
+      }
+
+      if (commandsUnsubscribe) {
+        commandsUnsubscribe();
+        commandsUnsubscribe = null;
+      }
+
+      if (routeUnsubscribe) {
+        routeUnsubscribe();
+        routeUnsubscribe = null;
+      }
+
+      if (aiModelsUnsubscribe) {
+        aiModelsUnsubscribe();
+        aiModelsUnsubscribe = null;
+      }
+
+      if (mlTrainingDataUnsubscribe) {
+        mlTrainingDataUnsubscribe();
+        mlTrainingDataUnsubscribe = null;
+      }
+
+      systemData = {};
+      stationsData = {};
+      carsData = {};
+      manualControlsData = {};
+      commandsData = {};
+      routeData = {};
+      aiModelsData = {};
+      mlTrainingData = {};
+      Object.values(etaModelsByCar).forEach((model) => {
+        if (model?.dispose) {
+          model.dispose();
+        }
+      });
+      etaModelsByCar = {};
+      etaModelNormalizationsByCar = {};
+      etaTrainingInProgressByCar = {};
+      etaTrainingStateByCar = {};
+      etaPredictionStateByCar = {};
+      selectedEtaCarId = "car1";
+      currentView = "dashboard";
+      selectedType = null;
+      selectedId = null;
+      lastVirtualCar4Active = null;
+      lastVirtualTripSyncKey = "";
+    }
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      loginError.innerText = "";
+
+      const email = document.getElementById("emailInput").value.trim();
+      const password = document.getElementById("passwordInput").value;
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        loginError.innerText = "Giris basarisiz: " + error.message;
+      }
+    });
+
+    logoutButton.addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
+    backButton.addEventListener("click", () => {
+      currentView = "dashboard";
+      selectedType = null;
+      selectedId = null;
+      renderAll();
+    });
+
+    function openRecoveryModal(carId) {
+      recoveryModalCarId = carId;
+      recoveryStopSelect.value = String(carsData?.[carId]?.expectedNextStop || 1);
+      recoveryModal.classList.remove("hidden");
+    }
+
+    function closeRecoveryModal() {
+      recoveryModalCarId = null;
+      recoveryModal.classList.add("hidden");
+    }
+
+    cancelRecoveryButton.addEventListener("click", closeRecoveryModal);
+
+    recoveryModal.addEventListener("click", (event) => {
+      if (event.target === recoveryModal) {
+        closeRecoveryModal();
+      }
+    });
+
+    confirmRecoveryButton.addEventListener("click", () => {
+      if (!recoveryModalCarId) {
+        return;
+      }
+
+      const carId = recoveryModalCarId;
+      const expectedNextStop = Number(recoveryStopSelect.value);
+
+      requestRecoveryMode(carId, expectedNextStop)
+        .then(closeRecoveryModal)
+        .catch(error => {
+          connectionStatus.innerText = "Recovery command error: " + error.message;
+        });
+    });
+
+    document.addEventListener("click", (event) => {
+      const systemToggle = event.target.closest("[data-system-toggle]");
+      if (systemToggle) {
+        const task = systemData?.tripsStarted === true ? stopTrips() : requestStartTrips();
+        task.catch(error => {
+          connectionStatus.innerText = "System command error: " + error.message;
+        });
+        return;
+      }
+
+      const etaCarSelectButton = event.target.closest("[data-eta-car-select]");
+      if (etaCarSelectButton) {
+        selectedEtaCarId = etaCarSelectButton.dataset.etaCarSelect;
+        renderAll();
+        return;
+      }
+
+      const aiTrainButton = event.target.closest("[data-ai-train-model]");
+      if (aiTrainButton) {
+        trainEtaModel();
+        return;
+      }
+
+      const aiPredictButton = event.target.closest("[data-ai-predict-now]");
+      if (aiPredictButton) {
+        predictEtaNow();
+        return;
+      }
+
+      const recoveryButton = event.target.closest("[data-recovery-open]");
+      if (recoveryButton) {
+        openRecoveryModal(recoveryButton.dataset.carId);
+        return;
+      }
+
+      const pidSaveButton = event.target.closest("[data-pid-save]");
+      if (pidSaveButton) {
+        savePidSettings(pidSaveButton.dataset.carId).catch(error => {
+          connectionStatus.innerText = "PID save error: " + error.message;
+        });
+        return;
+      }
+
+      const calibrationButton = event.target.closest("[data-calibration-command]");
+      if (calibrationButton) {
+        const carId = calibrationButton.dataset.carId;
+        sendCarCommand(carId, "START_CALIBRATION", "calibration").catch(error => {
+          connectionStatus.innerText = "Calibration command error: " + error.message;
+        });
+        return;
+      }
+
+      const toggleButton = event.target.closest("[data-manual-toggle]");
+      if (toggleButton) {
+        const carId = toggleButton.dataset.carId;
+        const manual = manualControlsData?.[carId] || {};
+        const nextEnabled = manual.enabled !== true;
+        writeManualControl(carId, nextEnabled, "STOP").catch(error => {
+          connectionStatus.innerText = "Manual mode write error: " + error.message;
+        });
+        return;
+      }
+
+      const commandButton = event.target.closest("[data-manual-command]");
+      if (commandButton) {
+        if (commandButton.disabled) {
+          return;
+        }
+
+        const carId = commandButton.dataset.carId;
+        const command = commandButton.dataset.manualCommand;
+        writeManualControl(carId, true, command).catch(error => {
+          connectionStatus.innerText = "Manual command write error: " + error.message;
+        });
+        return;
+      }
+
+      const card = event.target.closest(".panel-card");
+      if (!card) {
+        return;
+      }
+
+      selectedType = card.dataset.type;
+      selectedId = card.dataset.id;
+      currentView = "detail";
+      renderAll();
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        stopDataListeners();
+        dashboardPanel.classList.add("hidden");
+        loginPanel.classList.remove("hidden");
+        adminEmail.innerText = "Admin: -";
+        return;
+      }
+
+      if (!ADMIN_EMAILS.includes(user.email)) {
+        loginError.innerText = "Bu kullanici admin yetkisine sahip degil.";
+        await signOut(auth);
+        return;
+      }
+
+      loginPanel.classList.add("hidden");
+      dashboardPanel.classList.remove("hidden");
+      adminEmail.innerText = "Admin: " + user.email;
+      startDataListeners();
+      renderAll();
+    });
+  </script>
+</body>
+</html>

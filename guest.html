@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MEGABUS Live ETA Panel</title>
+
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1220;
+      --panel: #111827;
+      --panel-2: #162033;
+      --line: #2b3a52;
+      --text: #f8fafc;
+      --muted: #9ca3af;
+      --blue: #38bdf8;
+      --yellow: #facc15;
+      --green: #22c55e;
+      --red: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: #020617;
+      border-bottom: 2px solid var(--blue);
+      padding: 28px 18px;
+      text-align: center;
+    }
+
+    header h1 {
+      color: var(--blue);
+      font-size: clamp(28px, 5vw, 46px);
+      margin: 0;
+    }
+
+    header p {
+      color: #cbd5e1;
+      font-size: 16px;
+      margin: 10px 0 0;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 22px 16px 34px;
+    }
+
+    .section-title {
+      color: var(--blue);
+      font-size: 19px;
+      font-weight: 900;
+      margin: 4px 0 12px;
+    }
+
+    .vehicle-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-bottom: 22px;
+    }
+
+    .vehicle-card,
+    .trip-message {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+      padding: 16px;
+    }
+
+    .vehicle-name {
+      color: var(--yellow);
+      font-size: 20px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .vehicle-row {
+      align-items: center;
+      color: #dbeafe;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      margin-top: 7px;
+    }
+
+    .status-dot {
+      border-radius: 50%;
+      display: inline-block;
+      height: 12px;
+      width: 12px;
+    }
+
+    .status-dot.green {
+      background: #22c55e;
+    }
+
+    .status-dot.yellow {
+      background: #facc15;
+    }
+
+    .status-dot.red {
+      background: #ef4444;
+    }
+
+    .status-dot.gray {
+      background: #64748b;
+    }
+
+    .trip-message {
+      background: #172554;
+      border-color: #38bdf8;
+      color: #e0f2fe;
+      font-weight: 900;
+      margin-bottom: 18px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .station-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 18px;
+    }
+
+    .station-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+    }
+
+    .station-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .station-name {
+      color: var(--yellow);
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .station-id {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .direction {
+      background: var(--panel-2);
+      border-left: 5px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 14px;
+    }
+
+    .direction h2 {
+      font-size: 18px;
+      margin: 0 0 12px;
+      color: #dbeafe;
+    }
+
+    .eta-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .eta-box {
+      min-height: 78px;
+      border-radius: 8px;
+      background: #2563eb;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .eta-time {
+      font-size: clamp(24px, 5vw, 34px);
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .eta-value {
+      align-items: center;
+      display: inline-flex;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .ai-eta-badge {
+      background: #22c55e;
+      border-radius: 999px;
+      color: #052e16;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+      padding: 4px 6px;
+      text-transform: uppercase;
+    }
+
+    .eta-car {
+      color: #bfdbfe;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 7px;
+    }
+
+    .empty-eta {
+      background: #263247;
+      color: #cbd5e1;
+    }
+
+    .status {
+      border-radius: 8px;
+      font-size: 17px;
+      font-weight: 800;
+      margin-top: 16px;
+      padding: 13px;
+      text-align: center;
+    }
+
+    .normal {
+      background: #064e3b;
+      color: #bbf7d0;
+    }
+
+    .emergency {
+      background: #7f1d1d;
+      color: #fecaca;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0.66; }
+      100% { opacity: 1; }
+    }
+
+    .connection {
+      background: #020617;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: #cbd5e1;
+      font-size: 14px;
+      margin-top: 22px;
+      padding: 13px;
+      text-align: center;
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 22px;
+      text-align: center;
+    }
+
+    @media (max-width: 520px) {
+      .eta-list {
+        grid-template-columns: 1fr;
+      }
+
+      .eta-box {
+        min-height: 66px;
+      }
+
+      .station-title {
+        display: block;
+      }
+
+      .station-id {
+        display: block;
+        margin-top: 4px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>MEGABUS Live ETA Panel</h1>
+    <p>Yolcular icin canli istasyon ve yaklasan arac bilgisi</p>
+  </header>
+
+  <main class="container">
+    <div class="section-title">Arac Doluluk Durumu</div>
+    <section class="vehicle-grid" id="vehiclesContainer"></section>
+    <div class="trip-message hidden" id="tripMessage"></div>
+
+    <section class="station-grid" id="stationsContainer">
+      Loading stations...
+    </section>
+
+    <div class="connection" id="connectionStatus">
+      Firebase: Connecting...
+    </div>
+
+    <div class="footer">
+      Live data from Firebase Realtime Database
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB7fpAJww5J_zl-T4srs0McVGSxCPndIFA",
+      authDomain: "megabus-8ff11.firebaseapp.com",
+      databaseURL: "https://megabus-8ff11-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "megabus-8ff11",
+      storageBucket: "megabus-8ff11.firebasestorage.app",
+      messagingSenderId: "156931593615",
+      appId: "1:156931593615:web:ccf596af5f0366cb97e7fa"
+    };
+
+    const EXPECTED_CARS = ["car1", "car2", "car3"];
+    const EXPECTED_STATIONS = [
+      { id: "station1", name: "Station 1" },
+      { id: "station2", name: "Station 2" },
+      { id: "station3", name: "Station 3" }
+    ];
+
+    const STATION_STOP_MAP = {
+      station1: [0, 3],
+      station2: [1, 4],
+      station3: [2, 5]
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    const stationsRef = ref(database, "stations");
+    const carsRef = ref(database, "cars");
+    const systemRef = ref(database, "system");
+
+    const vehiclesContainer = document.getElementById("vehiclesContainer");
+    const tripMessage = document.getElementById("tripMessage");
+    const stationsContainer = document.getElementById("stationsContainer");
+    const connectionStatus = document.getElementById("connectionStatus");
+
+    let stationsData = {};
+    let carsData = {};
+    let systemData = {};
+    let lastVirtualCar4Active = null;
+    let tripMessageTimer = null;
+
+    function valueOrNoData(value, suffix = "") {
+      if (value === undefined || value === null || value === "") {
+        return "Bilgi yok";
+      }
+
+      return value + suffix;
+    }
+
+    function formatEta(value) {
+      if (value === undefined || value === null || value === "") {
+        return "-";
+      }
+
+      return value + "s";
+    }
+
+    function getValidAiEtaSec(car) {
+      const activeVersion = Number(systemData?.activeRouteVersion || 0);
+      const aiVersion = Number(car?.aiEtaRouteVersion || 0);
+      const aiEta = Number(car?.aiEtaPredictionSec || 0);
+
+      if (!activeVersion) {
+        return null;
+      }
+
+      if (car?.aiEtaEnabled !== true) {
+        return null;
+      }
+
+      if (car?.aiEtaStatus !== "ready") {
+        return null;
+      }
+
+      if (!Number.isFinite(aiEta) || aiEta <= 0) {
+        return null;
+      }
+
+      if (aiVersion !== activeVersion) {
+        return null;
+      }
+
+      return Math.round(aiEta);
+    }
+
+    function isCarEtaUsable(car) {
+      const mode = String(car?.mode || "").toLowerCase();
+
+      if (mode === "manual" || mode === "recovery") {
+        return false;
+      }
+
+      if (car?.positionKnown !== true || car?.etaValid !== true || car?.needsPositionConfirm === true) {
+        return false;
+      }
+
+      return true;
+    }
+
+    function getClassicEtaSec(car) {
+      if (!isCarEtaUsable(car)) {
+        return null;
+      }
+
+      if (car?.etaToNextStop !== undefined && car?.etaToNextStop !== null && car?.etaToNextStop !== "") {
+        return car.etaToNextStop;
+      }
+
+      if (car?.eta !== undefined && car?.eta !== null && car?.eta !== "") {
+        return car.eta;
+      }
+
+      return null;
+    }
+
+    function getDisplayEta(car) {
+      const aiEta = getValidAiEtaSec(car);
+
+      if (aiEta !== null) {
+        return {
+          value: aiEta,
+          source: "AI"
+        };
+      }
+
+      const classicEta = getClassicEtaSec(car);
+
+      if (classicEta !== null) {
+        return {
+          value: classicEta,
+          source: "CLASSIC"
+        };
+      }
+
+      return {
+        value: null,
+        source: "NONE"
+      };
+    }
+
+    function getCarEtaValue(car) {
+      return getDisplayEta(car).value;
+    }
+
+    function renderEtaValue(car) {
+      const eta = getDisplayEta(car);
+      const aiBadge = eta.source === "AI"
+        ? `<span class="ai-eta-badge">AI</span>`
+        : "";
+
+      return `<span class="eta-value">${formatEta(eta.value)}${aiBadge}</span>`;
+    }
+
+    function getOccupancy(car) {
+      const occupancy = car?.occupancy || {};
+      const status = occupancy.status || "unknown";
+      const color = occupancy.color || (
+        status === "full" ? "red" :
+        status === "partial" ? "yellow" :
+        status === "empty" ? "green" :
+        "gray"
+      );
+      const label = occupancy.label || (
+        status === "full" ? "Tamamen dolu" :
+        status === "partial" ? "Biraz dolu" :
+        status === "empty" ? "Bos" :
+        "Bilgi yok"
+      );
+
+      return { status, color, label };
+    }
+
+    function getTripCapacityState() {
+      const virtualCar4Active = EXPECTED_CARS.some(carId => getOccupancy(carsData?.[carId] || {}).status === "full");
+      return {
+        virtualCar4Active,
+        activeTripCount: virtualCar4Active ? 4 : 3,
+        message: virtualCar4Active
+          ? "Yogunluk nedeniyle ek sefer eklendi."
+          : "Sefer azaltildi. Toplam aktif sefer: 3"
+      };
+    }
+
+    function showTripMessage(message) {
+      if (tripMessageTimer) {
+        clearTimeout(tripMessageTimer);
+      }
+
+      tripMessage.innerText = message;
+      tripMessage.classList.remove("hidden");
+      tripMessageTimer = setTimeout(() => {
+        tripMessage.classList.add("hidden");
+      }, 10000);
+    }
+
+    function renderVehicles() {
+      const tripState = getTripCapacityState();
+
+      if (lastVirtualCar4Active === null) {
+        lastVirtualCar4Active = tripState.virtualCar4Active;
+      } else if (lastVirtualCar4Active !== tripState.virtualCar4Active) {
+        lastVirtualCar4Active = tripState.virtualCar4Active;
+        showTripMessage(tripState.message);
+      }
+
+      const physicalHtml = EXPECTED_CARS.map(carId => {
+        const car = carsData?.[carId] || {};
+        const occupancy = getOccupancy(car);
+        return `
+          <article class="vehicle-card">
+            <div class="vehicle-name">${car.carId || carId}</div>
+            <div class="vehicle-row"><span>ETA</span><strong>${renderEtaValue(car)}</strong></div>
+            <div class="vehicle-row">
+              <span>Doluluk</span>
+              <strong>${occupancy.label} <span class="status-dot ${occupancy.color}"></span></strong>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      const virtualHtml = tripState.virtualCar4Active ? `
+        <article class="vehicle-card">
+          <div class="vehicle-name">Ek Sefer</div>
+          <div class="vehicle-row"><span>car4</span><strong>Sanal</strong></div>
+          <div class="vehicle-row"><span>Bilgi</span><strong>Yogunluk nedeniyle ek sefer eklendi.</strong></div>
+        </article>
+      ` : "";
+
+      vehiclesContainer.innerHTML = physicalHtml + virtualHtml;
+    }
+
+    function getCarsForStationAndDirection(stationId, direction) {
+      const carsArray = Object.values(carsData || {});
+      const stopIndexes = STATION_STOP_MAP[stationId] || [];
+      const directionStopIndex = direction === "B" ? stopIndexes[1] : stopIndexes[0];
+
+      return carsArray
+        .filter(car => getDisplayEta(car).value !== null)
+        .filter(car => {
+          if (directionStopIndex !== undefined && Number(car.nextStopIndex) === Number(directionStopIndex)) {
+            return true;
+          }
+
+          return car.nextStopIndex === undefined && car.nextStation === stationId && car.direction === direction;
+        })
+        .sort((a, b) => Number(getCarEtaValue(a) ?? 999999) - Number(getCarEtaValue(b) ?? 999999))
+        .slice(0, 3);
+    }
+
+    function createEtaBoxes(cars, fallbackDirectionData) {
+      let html = "";
+
+      if (cars.length > 0) {
+        cars.forEach(car => {
+          html += `
+            <div class="eta-box">
+              <span class="eta-car">${car.carId || "car"}</span>
+              <span class="eta-time">${renderEtaValue(car)}</span>
+            </div>
+          `;
+        });
+
+        for (let i = cars.length; i < 3; i++) {
+          html += `
+            <div class="eta-box empty-eta">
+              <span class="eta-time">-</span>
+            </div>
+          `;
+        }
+
+        return html;
+      }
+
+      const eta1 = fallbackDirectionData?.eta1;
+      const eta2 = fallbackDirectionData?.eta2;
+      const eta3 = fallbackDirectionData?.eta3;
+
+      [eta1, eta2, eta3].forEach(eta => {
+        html += `
+          <div class="eta-box empty-eta">
+            <span class="eta-time">${formatEta(eta)}</span>
+          </div>
+        `;
+      });
+
+      return html;
+    }
+
+    function renderStations() {
+      let html = "";
+
+      EXPECTED_STATIONS.forEach(expectedStation => {
+        const station = stationsData?.[expectedStation.id] || {};
+        const stationName = station.name || expectedStation.name;
+        const directionACars = getCarsForStationAndDirection(expectedStation.id, "A");
+        const directionBCars = getCarsForStationAndDirection(expectedStation.id, "B");
+        const emergencyActive = Boolean(station.emergency);
+
+        html += `
+          <article class="station-card">
+            <div class="station-title">
+              <span class="station-name">${stationName}</span>
+              <span class="station-id">${expectedStation.id}</span>
+            </div>
+
+            <div class="direction">
+              <h2>A Yonu</h2>
+              <div class="eta-list">
+                ${createEtaBoxes(directionACars, station.directionA)}
+              </div>
+            </div>
+
+            <div class="direction">
+              <h2>B Yonu</h2>
+              <div class="eta-list">
+                ${createEtaBoxes(directionBCars, station.directionB)}
+              </div>
+            </div>
+
+            <div class="status ${emergencyActive ? "emergency" : "normal"}">
+              ${emergencyActive ? "Emergency: ACTIVE" : "Emergency: Normal"}
+            </div>
+          </article>
+        `;
+      });
+
+      stationsContainer.innerHTML = html;
+    }
+
+    function renderAll() {
+      renderVehicles();
+      renderStations();
+      connectionStatus.innerText = "Firebase: Live | Last update: " + new Date().toLocaleTimeString();
+    }
+
+    onValue(stationsRef, (snapshot) => {
+      stationsData = snapshot.val() || {};
+      renderAll();
+    }, (error) => {
+      connectionStatus.innerText = "Stations Firebase error: " + error.message;
+    });
+
+    onValue(carsRef, (snapshot) => {
+      carsData = snapshot.val() || {};
+      renderAll();
+    }, (error) => {
+      connectionStatus.innerText = "Cars Firebase error: " + error.message;
+    });
+
+    onValue(systemRef, (snapshot) => {
+      systemData = snapshot.val() || {};
+      renderAll();
+    }, (error) => {
+      connectionStatus.innerText = "System Firebase error: " + error.message;
+    });
+  </script>
+</body>
+</html>

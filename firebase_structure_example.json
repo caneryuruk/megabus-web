@@ -1,0 +1,336 @@
+{
+  "system": {
+    "mode": "idle",
+    "tripsStarted": false,
+    "allDevicesOnline": false,
+    "activeTripCount": 3,
+    "virtualCar4Active": false,
+    "lastTripChangeMessage": "",
+    "lastTripChangeAt": 0,
+    "routeCalibrated": false,
+    "activeRouteVersion": 0,
+    "startedAt": 0,
+    "stoppedAt": 0,
+    "lastStartCommandAt": 0,
+    "startCommandVersion": 0
+  },
+  "cars": {
+    "car1": {
+      "carId": "car1",
+      "mode": "idle",
+      "online": false,
+      "lastSeen": 0,
+      "wifiConnected": false,
+      "firebaseConnected": false,
+      "ip": null,
+      "positionKnown": false,
+      "etaValid": false,
+      "needsPositionConfirm": true,
+      "currentStop": 1,
+      "nextStop": 2,
+      "currentStopIndex": 0,
+      "nextStopIndex": 1,
+      "nextStation": "station2",
+      "expectedNextStop": null,
+      "pid": {
+        "kp": 35.0,
+        "ki": 0.0,
+        "kd": 20.0,
+        "baseSpeed": 250,
+        "maxSpeed": 1023,
+        "updatedAt": 0,
+        "updatedBy": "esp"
+      },
+      "occupancy": {
+        "fsr1Raw": 0,
+        "fsr2Raw": 0,
+        "fsr1Occupied": false,
+        "fsr2Occupied": false,
+        "occupiedSeatCount": 0,
+        "status": "empty",
+        "label": "Bos",
+        "color": "green",
+        "fsrThreshold": 1000,
+        "adsReady": false,
+        "lastUpdated": 0
+      }
+    },
+    "car2": {
+      "carId": "car2",
+      "mode": "idle",
+      "online": false,
+      "lastSeen": 0,
+      "wifiConnected": false,
+      "firebaseConnected": false,
+      "ip": null,
+      "positionKnown": false,
+      "etaValid": false,
+      "needsPositionConfirm": true,
+      "currentStop": 1,
+      "nextStop": 2,
+      "currentStopIndex": 0,
+      "nextStopIndex": 1,
+      "nextStation": "station2",
+      "expectedNextStop": null,
+      "pid": {
+        "kp": 35.0,
+        "ki": 0.0,
+        "kd": 20.0,
+        "baseSpeed": 250,
+        "maxSpeed": 1023,
+        "updatedAt": 0,
+        "updatedBy": "esp"
+      },
+      "occupancy": {
+        "fsr1Raw": 0,
+        "fsr2Raw": 0,
+        "fsr1Occupied": false,
+        "fsr2Occupied": false,
+        "occupiedSeatCount": 0,
+        "status": "empty",
+        "label": "Bos",
+        "color": "green",
+        "fsrThreshold": 1000,
+        "adsReady": false,
+        "lastUpdated": 0
+      }
+    },
+    "car3": {
+      "carId": "car3",
+      "mode": "idle",
+      "online": false,
+      "lastSeen": 0,
+      "wifiConnected": false,
+      "firebaseConnected": false,
+      "ip": null,
+      "positionKnown": false,
+      "etaValid": false,
+      "needsPositionConfirm": true,
+      "currentStop": 1,
+      "nextStop": 2,
+      "currentStopIndex": 0,
+      "nextStopIndex": 1,
+      "nextStation": "station2",
+      "expectedNextStop": null,
+      "pid": {
+        "kp": 35.0,
+        "ki": 0.0,
+        "kd": 20.0,
+        "baseSpeed": 250,
+        "maxSpeed": 1023,
+        "updatedAt": 0,
+        "updatedBy": "esp"
+      },
+      "occupancy": {
+        "fsr1Raw": 0,
+        "fsr2Raw": 0,
+        "fsr1Occupied": false,
+        "fsr2Occupied": false,
+        "occupiedSeatCount": 0,
+        "status": "empty",
+        "label": "Bos",
+        "color": "green",
+        "fsrThreshold": 1000,
+        "adsReady": false,
+        "lastUpdated": 0
+      }
+    }
+  },
+  "stations": {
+    "station1": {
+      "stationId": "station1",
+      "online": false,
+      "lastSeen": 0,
+      "wifiConnected": false,
+      "firebaseConnected": false,
+      "ip": null
+    },
+    "station2": {
+      "stationId": "station2",
+      "online": false,
+      "lastSeen": 0,
+      "wifiConnected": false,
+      "firebaseConnected": false,
+      "ip": null
+    },
+    "station3": {
+      "stationId": "station3",
+      "online": false,
+      "lastSeen": 0,
+      "wifiConnected": false,
+      "firebaseConnected": false,
+      "ip": null
+    }
+  },
+  "commands": {
+    "car1": {
+      "mode": "idle",
+      "command": "NONE",
+      "expectedNextStop": null,
+      "commandVersion": 0,
+      "updatedAt": 0,
+      "updatedBy": "admin"
+    },
+    "car2": {
+      "mode": "idle",
+      "command": "NONE",
+      "expectedNextStop": null,
+      "commandVersion": 0,
+      "updatedAt": 0,
+      "updatedBy": "admin"
+    },
+    "car3": {
+      "mode": "idle",
+      "command": "NONE",
+      "expectedNextStop": null,
+      "commandVersion": 0,
+      "updatedAt": 0,
+      "updatedBy": "admin"
+    }
+  },
+  "manualControls": {
+    "car1": {
+      "enabled": false,
+      "command": "STOP",
+      "speed": 300,
+      "updatedAt": 0,
+      "updatedBy": "admin"
+    },
+    "car2": {
+      "enabled": false,
+      "command": "STOP",
+      "speed": 300,
+      "updatedAt": 0,
+      "updatedBy": "admin"
+    },
+    "car3": {
+      "enabled": false,
+      "command": "STOP",
+      "speed": 300,
+      "updatedAt": 0,
+      "updatedBy": "admin"
+    }
+  },
+  "route": {
+    "stopCount": 6,
+    "routeVersion": 0,
+    "routeCalibrated": false,
+    "measuredBy": "car1",
+    "measuredAt": 0,
+    "totalDistance": 0,
+    "totalDuration": 0,
+    "averageSegmentDuration": 0,
+    "segments": {
+      "0": { "from": 0, "to": 1, "distance": 0, "duration": 0 },
+      "1": { "from": 1, "to": 2, "distance": 0, "duration": 0 },
+      "2": { "from": 2, "to": 3, "distance": 0, "duration": 0 },
+      "3": { "from": 3, "to": 4, "distance": 0, "duration": 0 },
+      "4": { "from": 4, "to": 5, "distance": 0, "duration": 0 },
+      "5": { "from": 5, "to": 0, "distance": 0, "duration": 0 }
+    }
+  },
+  "mlTrainingData": {
+    "car1": {},
+    "car2": {},
+    "car3": {}
+  },
+  "aiModels": {
+    "etaModel": {
+      "trained": false,
+      "needsRetraining": false,
+      "trainedRouteVersion": 0,
+      "sampleCount": 0,
+      "lastTrainedAt": 0,
+      "mae": null,
+      "modelType": "TensorFlow.js Regression",
+      "inputFeatures": [
+        "segmentIndex",
+        "segmentDistance",
+        "calibratedDurationSec",
+        "occupancyLevel",
+        "distanceActionLevel",
+        "avgPWM",
+        "lineLost"
+      ],
+      "outputLabel": "actualDurationSec"
+    },
+    "etaModels": {
+      "car1": {
+        "trained": false,
+        "needsRetraining": false,
+        "trainedRouteVersion": 0,
+        "sampleCount": 0,
+        "validSampleCount": 0,
+        "lastTrainedAt": 0,
+        "lastInvalidatedAt": 0,
+        "mae": null,
+        "modelType": "TensorFlow.js Regression",
+        "inputFeatures": [
+          "segmentIndex",
+          "segmentDistance",
+          "calibratedDurationSec",
+          "occupancyLevel",
+          "distanceActionLevel",
+          "avgPWM",
+          "lineLost"
+        ],
+        "outputLabel": "actualDurationSec"
+      },
+      "car2": {
+        "trained": false,
+        "needsRetraining": false,
+        "trainedRouteVersion": 0,
+        "sampleCount": 0,
+        "validSampleCount": 0,
+        "lastTrainedAt": 0,
+        "lastInvalidatedAt": 0,
+        "mae": null,
+        "modelType": "TensorFlow.js Regression",
+        "inputFeatures": [
+          "segmentIndex",
+          "segmentDistance",
+          "calibratedDurationSec",
+          "occupancyLevel",
+          "distanceActionLevel",
+          "avgPWM",
+          "lineLost"
+        ],
+        "outputLabel": "actualDurationSec"
+      },
+      "car3": {
+        "trained": false,
+        "needsRetraining": false,
+        "trainedRouteVersion": 0,
+        "sampleCount": 0,
+        "validSampleCount": 0,
+        "lastTrainedAt": 0,
+        "lastInvalidatedAt": 0,
+        "mae": null,
+        "modelType": "TensorFlow.js Regression",
+        "inputFeatures": [
+          "segmentIndex",
+          "segmentDistance",
+          "calibratedDurationSec",
+          "occupancyLevel",
+          "distanceActionLevel",
+          "avgPWM",
+          "lineLost"
+        ],
+        "outputLabel": "actualDurationSec"
+      }
+    }
+  },
+  "mlTrainingDataExample": {
+    "carId": "car1",
+    "routeVersion": 0,
+    "segmentIndex": 0,
+    "segmentDistance": 0,
+    "calibratedDurationSec": 0,
+    "occupancyLevel": 0,
+    "distanceActionLevel": 0,
+    "avgPWM": 0,
+    "lineLost": 0,
+    "actualDurationSec": 0,
+    "createdAt": 0
+  }
+}
