@@ -2674,6 +2674,11 @@
       const recoveryNeeded = shouldShowRecoveryButton(carId);
       const title = formatEntityTitle(carId, car.carId);
       const occupancy = getOccupancy(car);
+      const carIp = typeof car.ip === "string" ? car.ip.trim() : "";
+      const localControlUrl = carIp ? `http://${carIp}/` : "";
+      const localControlContent = localControlUrl
+        ? `<a href="${localControlUrl}" target="_blank" rel="noopener">${localControlUrl}</a>`
+        : "Arac IP bilgisi bekleniyor.";
 
       detailContent.innerHTML = `
         <div class="detail-header">
@@ -2714,6 +2719,7 @@
             ${fieldBox("Manuel Mod Durumu", isManualEnabled ? '<span class="badge manual-badge">Aktif</span>' : '<span class="badge unknown">Kapali</span>')}
             ${fieldBox("Son Komut", valueOrNoData(manual.command))}
             ${fieldBox("Son Guncelleyen", valueOrNoData(manual.updatedBy))}
+            ${fieldBox("Local Kontrol", localControlContent)}
           </div>
 
           <div class="manual-speed-row">
