@@ -985,6 +985,7 @@
     let etaTrainingStateByCar = {};
     let etaPredictionStateByCar = {};
     let selectedEtaCarId = "car1";
+    let manualCommandVersionByCar = {};
     let systemUnsubscribe = null;
     let carsUnsubscribe = null;
     let stationsUnsubscribe = null;
@@ -2399,16 +2400,38 @@
       return Math.max(0, Math.min(1023, Math.round(rawSpeed)));
     }
 
+    function getNextManualCommandVersion(carId) {
+      const firebaseVersion = Number(manualControlsData?.[carId]?.commandVersion || 0);
+      const localVersion = Number(manualCommandVersionByCar?.[carId] || 0);
+      const safeFirebaseVersion = Number.isFinite(firebaseVersion) && firebaseVersion >= 0 && firebaseVersion < 2000000000
+        ? firebaseVersion
+        : 0;
+      const safeLocalVersion = Number.isFinite(localVersion) && localVersion >= 0 && localVersion < 2000000000
+        ? localVersion
+        : 0;
+      const nextVersion = Math.max(safeFirebaseVersion, safeLocalVersion) + 1;
+
+      manualCommandVersionByCar[carId] = nextVersion;
+      return nextVersion;
+    }
+
+    function getManualUpdatedBy() {
+      return auth.currentUser?.email || "admin";
+    }
+
     async function writeManualControl(carId, enabled, command) {
       const speed = getManualSpeedValue(carId);
       const now = Date.now();
+      const nextVersion = getNextManualCommandVersion(carId);
+      const safeCommand = command || "STOP";
 
-      await set(ref(database, `manualControls/${carId}`), {
+      await update(ref(database, `manualControls/${carId}`), {
         enabled,
-        command,
+        command: safeCommand,
         speed,
+        commandVersion: nextVersion,
         updatedAt: now,
-        updatedBy: auth.currentUser?.email || "unknown"
+        updatedBy: getManualUpdatedBy()
       });
 
       if (enabled) {
@@ -2450,13 +2473,15 @@
 
     async function requestRecoveryMode(carId, expectedNextStop) {
       const now = Date.now();
+      const nextVersion = getNextManualCommandVersion(carId);
 
-      await set(ref(database, `manualControls/${carId}`), {
+      await update(ref(database, `manualControls/${carId}`), {
         enabled: false,
         command: "STOP",
         speed: manualControlsData?.[carId]?.speed ?? 300,
+        commandVersion: nextVersion,
         updatedAt: now,
-        updatedBy: auth.currentUser?.email || "unknown"
+        updatedBy: getManualUpdatedBy()
       });
 
       await update(ref(database, `cars/${carId}`), {
@@ -2808,11 +2833,15 @@
           ${fieldBox("manualControls enabled", boolText(manual.enabled))}
           ${fieldBox("manualControls command", valueOrNoData(manual.command))}
           ${fieldBox("manualControls speed", valueOrNoData(manual.speed))}
+          ${fieldBox("manualControls commandVersion", valueOrNoData(manual.commandVersion))}
           ${fieldBox("manualControls updatedAt", formatTimestamp(manual.updatedAt))}
           ${fieldBox("manualControls updatedBy", valueOrNoData(manual.updatedBy))}
           ${fieldBox("car.manualModeEnabled", boolText(car.manualModeEnabled))}
           ${fieldBox("car.manualCommand", valueOrNoData(car.manualCommand))}
           ${fieldBox("car.manualSpeed", valueOrNoData(car.manualSpeed))}
+          ${fieldBox("car.lastManualCommandVersion", valueOrNoData(car.lastManualCommandVersion))}
+          ${fieldBox("car.lastManualCommandSeenMs", valueOrNoData(car.lastManualCommandSeenMs))}
+          ${fieldBox("car.manualMillisSinceLastCommand", valueOrNoData(car.manualMillisSinceLastCommand))}
           ${fieldBox("car.manualStatusText", valueOrNoData(car.manualStatusText))}
           ${fieldBox("car.manualLastHttpCode", valueOrNoData(car.manualLastHttpCode))}
         </div>
@@ -3113,6 +3142,7 @@
       etaTrainingStateByCar = {};
       etaPredictionStateByCar = {};
       selectedEtaCarId = "car1";
+      manualCommandVersionByCar = {};
       currentView = "dashboard";
       selectedType = null;
       selectedId = null;
