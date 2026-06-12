@@ -456,14 +456,6 @@
       background: #14532d;
     }
 
-    .local-control-button {
-      background: #0f766e;
-    }
-
-    .local-control-button:hover {
-      background: #115e59;
-    }
-
     .manual-panel {
       background: #180f12;
       border: 1px solid #7f1d1d;
@@ -531,6 +523,14 @@
 
     .manual-speed-row {
       max-width: 220px;
+    }
+
+    .manual-feedback {
+      color: #bfdbfe;
+      font-size: 13px;
+      font-weight: 800;
+      margin-top: 10px;
+      min-height: 18px;
     }
 
     .system-grid {
@@ -994,6 +994,8 @@
     let etaPredictionStateByCar = {};
     let selectedEtaCarId = "car1";
     let manualCommandVersionByCar = {};
+    let manualHoldTimerByCar = {};
+    let manualActivePointerByCar = {};
     let systemUnsubscribe = null;
     let carsUnsubscribe = null;
     let stationsUnsubscribe = null;
@@ -1893,27 +1895,6 @@
       return isDeviceOnline(device) ? "online" : "offline";
     }
 
-    function getLocalControlUrl(car) {
-      const carIp = typeof car?.ip === "string" ? car.ip.trim() : "";
-      return carIp ? `http://${carIp}/` : "";
-    }
-
-    function localControlButton(car) {
-      const localControlUrl = getLocalControlUrl(car);
-      if (!localControlUrl) {
-        return "";
-      }
-
-      return `
-        <button
-          class="local-control-button"
-          type="button"
-          data-local-control-url="${localControlUrl}">
-          Hizli Local Kontrolu Ac
-        </button>
-      `;
-    }
-
     function getDeviceStatusItems() {
       const carItems = EXPECTED_CARS.map(id => ({
         id,
@@ -2203,7 +2184,6 @@
                 <div class="device-meta">Gecen sure: ${lastSeenAgeText}</div>
                 <div class="device-meta">Wi-Fi: ${boolText(item.data?.wifiConnected)} | Firebase: ${boolText(item.data?.firebaseConnected)}</div>
                 <div class="device-meta">IP: ${valueOrNoData(item.data?.ip)}</div>
-                ${item.type === "Arac" && item.data?.ip ? `<div class="system-actions">${localControlButton(item.data)}</div>` : ""}
               </div>
             `;
           }).join("")}
@@ -2471,10 +2451,10 @@
     }
 
     async function writeManualControl(carId, enabled, command) {
-      const speed = getManualSpeedValue(carId);
+      const speed = enabled ? getManualSpeedValue(carId) : 0;
       const now = Date.now();
       const nextVersion = getNextManualCommandVersion(carId);
-      const safeCommand = command || "STOP";
+      const safeCommand = enabled ? (command || "STOP") : "STOP";
 
       await update(ref(database, `manualControls/${carId}`), {
         enabled,
@@ -2486,14 +2466,71 @@
       });
     }
 
+    function setManualFeedback(carId, message) {
+      const feedback = document.getElementById(`manualFeedback-${carId}`);
+      if (feedback) {
+        feedback.innerText = message;
+      }
+    }
+
+    function stopManualHold(carId) {
+      if (manualHoldTimerByCar[carId]) {
+        clearInterval(manualHoldTimerByCar[carId]);
+        manualHoldTimerByCar[carId] = null;
+      }
+
+      manualActivePointerByCar[carId] = null;
+
+      writeManualControl(carId, false, "STOP")
+        .then(() => setManualFeedback(carId, "sent STOP"))
+        .catch(error => {
+          connectionStatus.innerText = "Manual STOP write error: " + error.message;
+        });
+    }
+
+    function startManualHold(commandButton, pointerId = "touch") {
+      if (!commandButton || commandButton.disabled) {
+        return;
+      }
+
+      const carId = commandButton.dataset.carId;
+      const command = commandButton.dataset.manualCommand;
+
+      if (!carId || !command) {
+        return;
+      }
+
+      if (manualActivePointerByCar[carId] !== null && manualActivePointerByCar[carId] !== undefined) {
+        stopManualHold(carId);
+      }
+
+      manualActivePointerByCar[carId] = pointerId;
+
+      if (command === "STOP") {
+        stopManualHold(carId);
+        return;
+      }
+
+      const sendCommand = () => {
+        setManualFeedback(carId, `sent ${command}`);
+        writeManualControl(carId, true, command).catch(error => {
+          connectionStatus.innerText = "Manual command write error: " + error.message;
+        });
+      };
+
+      sendCommand();
+      manualHoldTimerByCar[carId] = setInterval(sendCommand, 250);
+    }
+
     async function sendCarCommand(carId, command, mode, extra = {}) {
       const now = Date.now();
 
       await set(ref(database, `commands/${carId}`), {
         mode,
         command,
+        expectedNextStop: null,
         ...extra,
-        commandVersion: now,
+        commandVersion: now.toString(),
         updatedAt: now,
         updatedBy: auth.currentUser?.email || "unknown"
       });
@@ -2506,7 +2543,7 @@
       await update(ref(database, `manualControls/${carId}`), {
         enabled: false,
         command: "STOP",
-        speed: manualControlsData?.[carId]?.speed ?? 300,
+        speed: 0,
         commandVersion: nextVersion,
         updatedAt: now,
         updatedBy: getManualUpdatedBy()
@@ -2678,7 +2715,6 @@
             <div class="mini-row">Action: ${getActionBadge(car.action)}</div>
             <div class="mini-row">Next Station: ${valueOrNoData(car.nextStation)}</div>
             <div class="mini-row">ETA: ${formatEta(getCarEtaValue(car))}</div>
-            ${car.ip ? `<div class="system-actions">${localControlButton(car)}</div>` : ""}
             ${recoveryNeeded ? `
               <div class="system-actions">
                 <button class="recovery-button" type="button" data-recovery-open data-car-id="${carId}">
@@ -2769,20 +2805,18 @@
                 Otomatik Moda Don
               </button>
             ` : ""}
-            ${localControlButton(car)}
           </div>
         </div>
 
-        <div class="sub-title">Firebase Manual / Yedek Kontrol</div>
+        <div class="sub-title">Admin Manuel Kontrol</div>
         <div class="manual-panel">
           <div class="manual-warning">
-            Firebase Manual / Yedek Kontrol -- gecikmeli olabilir. Gercek surus icin Hizli Local Kontrolu Ac butonunu kullan; telefon/bilgisayar aracla ayni Wi-Fi'da olmali. Gecikme varsa ESP direkt Wi-Fi agi etkinlestirildiginde http://192.168.4.1/ adresini ac.
+            Admin manuel kontrol ana surus kanali olarak kullanilir. Butona basili tutunca komut hemen gonderilir ve 250 ms aralikla tazelenir; birakinca STOP yazilir.
           </div>
           <div class="telemetry-grid">
             ${fieldBox("Manuel Mod Durumu", isManualEnabled ? '<span class="badge manual-badge">Aktif</span>' : '<span class="badge unknown">Kapali</span>')}
             ${fieldBox("Son Komut", valueOrNoData(manual.command))}
             ${fieldBox("Son Guncelleyen", valueOrNoData(manual.updatedBy))}
-            ${fieldBox("Local Kontrol", car.ip ? localControlButton(car) : "Arac IP bilgisi bekleniyor.")}
           </div>
 
           <div class="manual-speed-row">
@@ -2797,6 +2831,7 @@
             <button type="button" data-manual-command="RIGHT" data-car-id="${carId}" ${manualDisabled}>Sag</button>
             <button class="backward" type="button" data-manual-command="BACKWARD" data-car-id="${carId}" ${manualDisabled}>Geri</button>
           </div>
+          <div class="manual-feedback" id="manualFeedback-${carId}"></div>
         </div>
 
         <div class="sub-title">Genel Bilgi</div>
@@ -3248,6 +3283,81 @@
         });
     });
 
+    document.addEventListener("pointerdown", (event) => {
+      const commandButton = event.target.closest("[data-manual-command]");
+      if (!commandButton || commandButton.disabled) {
+        return;
+      }
+
+      event.preventDefault();
+      if (commandButton.setPointerCapture) {
+        commandButton.setPointerCapture(event.pointerId);
+      }
+      startManualHold(commandButton, event.pointerId);
+    });
+
+    document.addEventListener("pointerup", (event) => {
+      const commandButton = event.target.closest("[data-manual-command]");
+      if (!commandButton) {
+        return;
+      }
+
+      event.preventDefault();
+      stopManualHold(commandButton.dataset.carId);
+    });
+
+    document.addEventListener("pointercancel", (event) => {
+      const commandButton = event.target.closest("[data-manual-command]");
+      if (!commandButton) {
+        return;
+      }
+
+      event.preventDefault();
+      stopManualHold(commandButton.dataset.carId);
+    });
+
+    document.addEventListener("pointerleave", (event) => {
+      const commandButton = event.target.closest("[data-manual-command]");
+      if (!commandButton) {
+        return;
+      }
+
+      event.preventDefault();
+      stopManualHold(commandButton.dataset.carId);
+    }, true);
+
+    if (!window.PointerEvent) {
+      document.addEventListener("touchstart", (event) => {
+        const commandButton = event.target.closest("[data-manual-command]");
+        if (!commandButton || commandButton.disabled) {
+          return;
+        }
+
+        event.preventDefault();
+        startManualHold(commandButton, "touch");
+      }, { passive: false });
+
+      document.addEventListener("touchend", (event) => {
+        const commandButton = event.target.closest("[data-manual-command]");
+        if (!commandButton) {
+          return;
+        }
+
+        event.preventDefault();
+        stopManualHold(commandButton.dataset.carId);
+      }, { passive: false });
+
+      document.addEventListener("touchcancel", (event) => {
+        const commandButton = event.target.closest("[data-manual-command]");
+        if (!commandButton) {
+          return;
+        }
+
+        event.preventDefault();
+        stopManualHold(commandButton.dataset.carId);
+      }, { passive: false });
+    }
+
     document.addEventListener("click", (event) => {
       const systemToggle = event.target.closest("[data-system-toggle]");
       if (systemToggle) {
@@ -3283,12 +3393,6 @@
         return;
       }
 
-      const localControlButton = event.target.closest("[data-local-control-url]");
-      if (localControlButton) {
-        window.open(localControlButton.dataset.localControlUrl, "_blank", "noopener");
-        return;
-      }
-
       const pidSaveButton = event.target.closest("[data-pid-save]");
       if (pidSaveButton) {
         savePidSettings(pidSaveButton.dataset.carId).catch(error => {
@@ -3319,15 +3423,7 @@
 
       const commandButton = event.target.closest("[data-manual-command]");
       if (commandButton) {
-        if (commandButton.disabled) {
-          return;
-        }
-
-        const carId = commandButton.dataset.carId;
-        const command = commandButton.dataset.manualCommand;
-        writeManualControl(carId, true, command).catch(error => {
-          connectionStatus.innerText = "Manual command write error: " + error.message;
-        });
+        event.preventDefault();
         return;
       }
 
