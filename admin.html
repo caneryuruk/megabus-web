@@ -456,6 +456,14 @@
       background: #14532d;
     }
 
+    .local-control-button {
+      background: #0f766e;
+    }
+
+    .local-control-button:hover {
+      background: #115e59;
+    }
+
     .manual-panel {
       background: #180f12;
       border: 1px solid #7f1d1d;
@@ -906,7 +914,7 @@
     ];
 
     // Gercek production guvenligi icin Firebase Database Rules ve custom claims/role yapisi kullanilmalidir.
-    const OFFLINE_TIMEOUT_MS = 10000;
+    const OFFLINE_TIMEOUT_MS = 30000;
     const EXPECTED_CARS = ["car1", "car2", "car3"];
     const ETA_INPUT_FEATURES = [
       "segmentIndex",
@@ -1860,6 +1868,52 @@
         Date.now() - lastSeen <= OFFLINE_TIMEOUT_MS;
     }
 
+    function getDeviceLastSeenAgeSeconds(device) {
+      const lastSeen = Number(device?.lastSeen || 0);
+      if (!Number.isFinite(lastSeen) || lastSeen <= 0) {
+        return null;
+      }
+
+      return Math.max(0, Math.round((Date.now() - lastSeen) / 1000));
+    }
+
+    function getDeviceConnectionLabel(device) {
+      if (isDeviceOnline(device)) {
+        return "Bagli";
+      }
+
+      if (device?.wifiConnected === true && device?.firebaseConnected === true) {
+        return "Heartbeat gecikmis";
+      }
+
+      return "Bagli Degil";
+    }
+
+    function getDeviceConnectionClass(device) {
+      return isDeviceOnline(device) ? "online" : "offline";
+    }
+
+    function getLocalControlUrl(car) {
+      const carIp = typeof car?.ip === "string" ? car.ip.trim() : "";
+      return carIp ? `http://${carIp}/` : "";
+    }
+
+    function localControlButton(car) {
+      const localControlUrl = getLocalControlUrl(car);
+      if (!localControlUrl) {
+        return "";
+      }
+
+      return `
+        <button
+          class="local-control-button"
+          type="button"
+          data-local-control-url="${localControlUrl}">
+          Hizli Local Kontrolu Ac
+        </button>
+      `;
+    }
+
     function getDeviceStatusItems() {
       const carItems = EXPECTED_CARS.map(id => ({
         id,
@@ -2132,18 +2186,24 @@
       deviceStatusContainer.innerHTML = `
         <div class="device-status-grid">
           ${items.map(item => {
-            const online = isDeviceOnline(item.data);
+            const connectionClass = getDeviceConnectionClass(item.data);
+            const connectionLabel = getDeviceConnectionLabel(item.data);
+            const ageSeconds = getDeviceLastSeenAgeSeconds(item.data);
+            const lastSeenAgeText = ageSeconds === null ? "Bilgi yok" : `${ageSeconds} sn once`;
             return `
-              <div class="device-status-card ${online ? "online" : "offline"}">
+              <div class="device-status-card ${connectionClass}">
                 <div class="device-status-name">
                   <span>${item.type}: ${item.id}</span>
-                  <span class="device-pill ${online ? "online" : "offline"}">
-                    ${online ? "Bagli" : "Bagli Degil"}
+                  <span class="device-pill ${connectionClass}">
+                    ${connectionLabel}
                   </span>
                 </div>
+                <div class="device-meta">online flag: ${boolText(item.data?.online)}</div>
                 <div class="device-meta">Son gorulme: ${formatTimestamp(item.data?.lastSeen)}</div>
+                <div class="device-meta">Gecen sure: ${lastSeenAgeText}</div>
                 <div class="device-meta">Wi-Fi: ${boolText(item.data?.wifiConnected)} | Firebase: ${boolText(item.data?.firebaseConnected)}</div>
                 <div class="device-meta">IP: ${valueOrNoData(item.data?.ip)}</div>
+                ${item.type === "Arac" && item.data?.ip ? `<div class="system-actions">${localControlButton(item.data)}</div>` : ""}
               </div>
             `;
           }).join("")}
@@ -2596,7 +2656,8 @@
         const manual = manualControlsData?.[carId] || {};
         const manualActive = manual.enabled === true;
         const recoveryNeeded = shouldShowRecoveryButton(carId);
-        const online = isDeviceOnline(car);
+        const connectionClass = getDeviceConnectionClass(car);
+        const connectionLabel = getDeviceConnectionLabel(car);
         const occupancy = getOccupancy(car);
         const isActive = selectedType === "car" && selectedId === carId;
 
@@ -2606,7 +2667,8 @@
               <span class="card-name">${car.carId || carId}</span>
               <span class="small-id">${manualActive ? '<span class="badge manual-badge">MANUAL MODE</span>' : carId}</span>
             </div>
-            <div class="mini-row">Baglanti: <span class="device-pill ${online ? "online" : "offline"}">${online ? "Bagli" : "Bagli Degil"}</span></div>
+            <div class="mini-row">Baglanti: <span class="device-pill ${connectionClass}">${connectionLabel}</span></div>
+            <div class="mini-row">IP: ${valueOrNoData(car.ip)}</div>
             <div class="mini-row">Status: ${getStatusBadge(car.status)}</div>
             <div class="mini-row">Manual: ${manualActive ? '<span class="badge manual-badge">ACTIVE</span>' : '<span class="badge unknown">OFF</span>'}</div>
             <div class="mini-row">Mode: ${valueOrNoData(car.mode)}</div>
@@ -2616,6 +2678,7 @@
             <div class="mini-row">Action: ${getActionBadge(car.action)}</div>
             <div class="mini-row">Next Station: ${valueOrNoData(car.nextStation)}</div>
             <div class="mini-row">ETA: ${formatEta(getCarEtaValue(car))}</div>
+            ${car.ip ? `<div class="system-actions">${localControlButton(car)}</div>` : ""}
             ${recoveryNeeded ? `
               <div class="system-actions">
                 <button class="recovery-button" type="button" data-recovery-open data-car-id="${carId}">
@@ -2674,11 +2737,10 @@
       const recoveryNeeded = shouldShowRecoveryButton(carId);
       const title = formatEntityTitle(carId, car.carId);
       const occupancy = getOccupancy(car);
-      const carIp = typeof car.ip === "string" ? car.ip.trim() : "";
-      const localControlUrl = carIp ? `http://${carIp}/` : "";
-      const localControlContent = localControlUrl
-        ? `<a href="${localControlUrl}" target="_blank" rel="noopener">${localControlUrl}</a>`
-        : "Arac IP bilgisi bekleniyor.";
+      const connectionClass = getDeviceConnectionClass(car);
+      const connectionLabel = getDeviceConnectionLabel(car);
+      const lastSeenAgeSeconds = getDeviceLastSeenAgeSeconds(car);
+      const lastSeenAgeText = lastSeenAgeSeconds === null ? "Bilgi yok" : `${lastSeenAgeSeconds} sn once`;
 
       detailContent.innerHTML = `
         <div class="detail-header">
@@ -2707,19 +2769,20 @@
                 Otomatik Moda Don
               </button>
             ` : ""}
+            ${localControlButton(car)}
           </div>
         </div>
 
-        <div class="sub-title">Manuel Kontrol</div>
+        <div class="sub-title">Firebase Manual / Yedek Kontrol</div>
         <div class="manual-panel">
           <div class="manual-warning">
-            Dikkat: Manuel mod aktifken arac QTR, mesafe sensoru ve otomatik guvenlik kararlarini dinlemez.
+            Bu kontrol Firebase uzerinden gider, gecikme olabilir. En hizli kontrol icin Hizli Local Kontrolu Ac butonunu kullan.
           </div>
           <div class="telemetry-grid">
             ${fieldBox("Manuel Mod Durumu", isManualEnabled ? '<span class="badge manual-badge">Aktif</span>' : '<span class="badge unknown">Kapali</span>')}
             ${fieldBox("Son Komut", valueOrNoData(manual.command))}
             ${fieldBox("Son Guncelleyen", valueOrNoData(manual.updatedBy))}
-            ${fieldBox("Local Kontrol", localControlContent)}
+            ${fieldBox("Local Kontrol", car.ip ? localControlButton(car) : "Arac IP bilgisi bekleniyor.")}
           </div>
 
           <div class="manual-speed-row">
@@ -2739,8 +2802,10 @@
         <div class="sub-title">Genel Bilgi</div>
         <div class="telemetry-grid">
           ${fieldBox("Car ID", valueOrNoData(car.carId || carId))}
+          ${fieldBox("Baglanti", `<span class="device-pill ${connectionClass}">${connectionLabel}</span>`)}
           ${fieldBox("online", boolText(car.online))}
           ${fieldBox("lastSeen", formatTimestamp(car.lastSeen))}
+          ${fieldBox("Son gorulme gecen sure", lastSeenAgeText)}
           ${fieldBox("wifiConnected", boolText(car.wifiConnected))}
           ${fieldBox("firebaseConnected", boolText(car.firebaseConnected))}
           ${fieldBox("ip", valueOrNoData(car.ip))}
@@ -3215,6 +3280,12 @@
       const recoveryButton = event.target.closest("[data-recovery-open]");
       if (recoveryButton) {
         openRecoveryModal(recoveryButton.dataset.carId);
+        return;
+      }
+
+      const localControlButton = event.target.closest("[data-local-control-url]");
+      if (localControlButton) {
+        window.open(localControlButton.dataset.localControlUrl, "_blank", "noopener");
         return;
       }
 
