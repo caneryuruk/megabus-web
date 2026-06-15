@@ -101,7 +101,8 @@
 
 // Güvenlik: ESP'den bu kadar süre komut gelmezse (ESP çökmesi/kablo) motoru durdur.
 // (WiFi kesilince ESP zaten STOP gönderir; bu watchdog ESP'nin tamamen susmasına karşı.)
-#define CMD_TIMEOUT_MS        2000
+// 3sn marj: ESP HTTPS ile meşgulken komut göndermesi gecikebilir, yanlış durmasın.
+#define CMD_TIMEOUT_MS        3000
 
 // Mesafe eşikleri
 #define DIST_STOP_CM       8.0f

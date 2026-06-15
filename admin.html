@@ -994,6 +994,7 @@
     let etaPredictionStateByCar = {};
     let selectedEtaCarId = "car1";
     let manualCommandVersionByCar = {};
+    let lastPidSignature = null;
     let systemUnsubscribe = null;
     let carsUnsubscribe = null;
     let stationsUnsubscribe = null;
@@ -2234,9 +2235,18 @@
     }
 
     function renderPidSettings() {
+      // Kullanıcı bir input'ta yazıyorsa asla yeniden çizme (değeri sıfırlamasın).
       if (pidSettingsContainer.contains(document.activeElement)) {
         return;
       }
+
+      // PID verisi gerçekten değişmedikçe yeniden çizme. Telemetri her saniye
+      // renderAll çağırır ama PID'e dokunmaz → imza aynı kalır → input'lar korunur.
+      const signature = JSON.stringify(EXPECTED_CARS.map(carId => carsData?.[carId]?.pid || null));
+      if (signature === lastPidSignature) {
+        return;
+      }
+      lastPidSignature = signature;
 
       pidSettingsContainer.innerHTML = `
         <div class="pid-grid">

@@ -31,16 +31,20 @@
 #include "secrets.h"
 
 // ==================== ZAMANLAMA ====================
-#define MANUAL_POLL_MS       300    // manualControls polling — düşük gecikme için hızlı
-#define COMMAND_POLL_MS      800    // commands polling (mod nadiren değişir)
-#define TELEMETRY_PUSH_MS    800    // Firebase'e telemetry yazma aralığı
+// NOT: ESP8266'da her HTTPS isteği (BearSSL handshake) ~300-700ms sürer.
+// Çok sık polling ESP'yi boğar → istekler başarısız olur → manuel kontrol kopar.
+// Bu yüzden aralıklar ESP'nin nefes alacağı şekilde ayarlı.
+#define MANUAL_POLL_MS       500    // manualControls polling
+#define COMMAND_POLL_MS     1000    // commands polling (mod nadiren değişir)
+#define TELEMETRY_PUSH_MS   1000    // Firebase'e telemetry yazma aralığı
 #define WIFI_RETRY_MS      30000    // Wi-Fi yeniden bağlanma denemesi
-#define PID_POLL_MS         2000    // PID ayarları polling aralığı
+#define PID_POLL_MS         2500    // PID ayarları polling aralığı
 #define HTTP_TIMEOUT_MS     4000    // HTTPS çağrıları için zaman aşımı (takılma önler)
 
 // Güvenlik: manualControls okuması bu kadar süredir başarılı olmuyorsa
 // (WiFi/Firebase kesik) araca STOP gönder. Latch yalnızca bağlantı varken sürer.
-#define MANUAL_STALE_MS     1500
+// Marj: ~4 poll denemesi (500ms × 4) — geçici hatalar yanlış STOP tetiklemesin.
+#define MANUAL_STALE_MS     2000
 
 // ==================== URL YARDIMCILARI ====================
 // Stack'e geçici String basarız; tek seferlik HTTP çağrısı için yeterli.
