@@ -1,0 +1,4 @@
+# Vercel yalnızca web panelini servis etsin — firmware ve docs deploy edilmesin
+# (GitHub'da dururlar ama siteye gönderilmezler)
+firmware/
+docs/

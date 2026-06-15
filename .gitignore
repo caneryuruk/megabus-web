@@ -1,8 +1,11 @@
-.DS_Store
-Thumbs.db
-.vercel
-node_modules
+# Gerçek kimlik bilgileri — repoya GİTMEZ (WiFi şifresi + Firebase URL içerir)
+firmware/esp8266_firebase_bridge/secrets.h
+
+# Ortam ve yerel dosyalar
 .env
 .env.*
 *.local
-*.ino
+.vercel
+node_modules
+.DS_Store
+Thumbs.db
