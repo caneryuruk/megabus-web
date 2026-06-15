@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -799,21 +799,21 @@
         <h1>MEGABUS Admin Panel</h1>
         <div class="header-meta">Technical dashboard for vehicles and stations</div>
       </div>
-      <a href="./guest.html" style="color:#38bdf8;font-weight:800;text-decoration:none;">Yolcu Paneli</a>
+      <a href="./guest.html" style="color:#38bdf8;font-weight:800;text-decoration:none;">Guest Panel</a>
     </div>
   </header>
 
   <main class="container">
     <section class="login-card" id="loginPanel">
-      <h2>Admin Girisi</h2>
+      <h2>Admin Login</h2>
       <form id="loginForm">
         <label for="emailInput">Email</label>
         <input id="emailInput" type="email" autocomplete="username" required />
 
-        <label for="passwordInput">Sifre</label>
+        <label for="passwordInput">Password</label>
         <input id="passwordInput" type="password" autocomplete="current-password" required />
 
-        <button class="login-button" type="submit">Giris Yap</button>
+        <button class="login-button" type="submit">Sign In</button>
       </form>
       <div class="error" id="loginError"></div>
     </section>
@@ -825,24 +825,24 @@
           <span id="connectionStatus">Firebase: Connecting...</span>
           <span id="lastUpdate">Last update: -</span>
         </div>
-        <button class="logout-button" id="logoutButton" type="button">Cikis Yap</button>
+        <button class="logout-button" id="logoutButton" type="button">Sign Out</button>
       </div>
 
       <section id="dashboardView">
-        <div class="section-title">Baglanti Durumu</div>
+        <div class="section-title">Connection Status</div>
         <div id="deviceStatusContainer"></div>
 
         <div class="section-title">System Control</div>
         <div id="systemControlContainer"></div>
 
-        <div class="section-title">Arac Doluluk Durumu</div>
+        <div class="section-title">Vehicle Occupancy</div>
         <div id="occupancyContainer"></div>
 
-        <div class="section-title">Ek Sefer</div>
+        <div class="section-title">Extra Trip</div>
         <div id="tripCapacityContainer"></div>
         <div class="trip-alert hidden" id="tripAlert"></div>
 
-        <div class="section-title">PID Ayarlari</div>
+        <div class="section-title">PID Settings</div>
         <div id="pidSettingsContainer"></div>
 
         <div class="section-title">Route Calibration</div>
@@ -859,7 +859,7 @@
       </section>
 
       <section id="detailView" class="detail-view hidden">
-        <button class="back-button" id="backButton" type="button">&larr; Geri Don</button>
+        <button class="back-button" id="backButton" type="button">&larr; Back</button>
         <div class="detail-content" id="detailContent"></div>
       </section>
     </section>
@@ -867,12 +867,12 @@
 
   <div class="modal-backdrop hidden" id="recoveryModal">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle">
-      <h2 id="recoveryModalTitle">Araci otomatik moda dondur</h2>
+      <h2 id="recoveryModalTitle">Return vehicle to automatic mode</h2>
       <p>
-        Arac su anda konumu bilinmeyen durumda. Lutfen aracin cizgi uzerinde
-        ilerlediginde ilk ulasacagi siradaki duragi secin.
+        The vehicle position is currently unknown. Please select the next stop
+        the vehicle will reach first as it moves along the line.
       </p>
-      <label for="recoveryStopSelect">Siradaki durak:</label>
+      <label for="recoveryStopSelect">Next stop:</label>
       <select id="recoveryStopSelect">
         <option value="1">Stop 1</option>
         <option value="2">Stop 2</option>
@@ -882,8 +882,8 @@
         <option value="6">Stop 6</option>
       </select>
       <div class="modal-actions">
-        <button class="secondary-button" id="cancelRecoveryButton" type="button">Iptal</button>
-        <button class="recovery-button" id="confirmRecoveryButton" type="button">Otomatik Moda Don</button>
+        <button class="secondary-button" id="cancelRecoveryButton" type="button">Cancel</button>
+        <button class="recovery-button" id="confirmRecoveryButton" type="button">Return to Auto Mode</button>
       </div>
     </div>
   </div>
@@ -913,7 +913,7 @@
       "sasan@gmail.com"
     ];
 
-    // Gercek production guvenligi icin Firebase Database Rules ve custom claims/role yapisi kullanilmalidir.
+    // For real production security, use Firebase Database Rules and a custom claims/role structure.
     const OFFLINE_TIMEOUT_MS = 30000;
     const EXPECTED_CARS = ["car1", "car2", "car3"];
     const ETA_INPUT_FEATURES = [
@@ -1007,7 +1007,7 @@
 
     function valueOrNoData(value, suffix = "") {
       if (value === undefined || value === null || value === "") {
-        return "Bilgi yok";
+        return "No data";
       }
 
       return value + suffix;
@@ -1023,7 +1023,7 @@
 
     function formatDistance(value) {
       if (value === undefined || value === null || value === "" || value === -1) {
-        return "Bilgi yok";
+        return "No data";
       }
 
       return value + " cm";
@@ -1031,7 +1031,7 @@
 
     function formatDurationMs(value) {
       if (value === undefined || value === null || value === "" || Number(value) <= 0) {
-        return "Bilgi yok";
+        return "No data";
       }
 
       return (Number(value) / 1000).toFixed(1) + "s";
@@ -1039,12 +1039,12 @@
 
     function formatTimestamp(value) {
       if (value === undefined || value === null || value === "") {
-        return "Bilgi yok";
+        return "No data";
       }
 
       const date = new Date(Number(value));
       if (Number.isNaN(date.getTime())) {
-        return "Bilgi yok";
+        return "No data";
       }
 
       return date.toLocaleString();
@@ -1052,7 +1052,7 @@
 
     function boolText(value) {
       if (value === undefined || value === null) {
-        return "Bilgi yok";
+        return "No data";
       }
 
       return value ? "Evet" : "Hayir";
@@ -1068,12 +1068,12 @@
 
     function formatMae(value) {
       if (value === undefined || value === null || value === "") {
-        return "Bilgi yok";
+        return "No data";
       }
 
       const numberValue = Number(value);
       if (!Number.isFinite(numberValue)) {
-        return "Bilgi yok";
+        return "No data";
       }
 
       return numberValue.toFixed(2) + "s";
@@ -1881,14 +1881,14 @@
 
     function getDeviceConnectionLabel(device) {
       if (isDeviceOnline(device)) {
-        return "Bagli";
+        return "Connected";
       }
 
       if (device?.wifiConnected === true && device?.firebaseConnected === true) {
-        return "Heartbeat gecikmis";
+        return "Heartbeat delayed";
       }
 
-      return "Bagli Degil";
+      return "Disconnected";
     }
 
     function getDeviceConnectionClass(device) {
@@ -1898,13 +1898,13 @@
     function getDeviceStatusItems() {
       const carItems = EXPECTED_CARS.map(id => ({
         id,
-        type: "Arac",
+        type: "Vehicle",
         data: carsData?.[id] || {}
       }));
 
       const stationItems = EXPECTED_STATIONS.map(station => ({
         id: station.id,
-        type: "Durak",
+        type: "Station",
         data: stationsData?.[station.id] || {}
       }));
 
@@ -1952,10 +1952,10 @@
         "gray"
       );
       const label = occupancy.label || (
-        status === "full" ? "Tamamen dolu" :
-        status === "partial" ? "Biraz dolu" :
-        status === "empty" ? "Bos" :
-        "Bilgi yok"
+        status === "full" ? "Full" :
+        status === "partial" ? "Partially full" :
+        status === "empty" ? "Empty" :
+        "No data"
       );
 
       return {
@@ -1964,7 +1964,7 @@
         label,
         fsr1Raw: occupancy.fsr1Raw ?? car?.fsr1,
         fsr2Raw: occupancy.fsr2Raw ?? car?.fsr2,
-        occupiedSeatCount: occupancy.occupiedSeatCount ?? "Bilgi yok"
+        occupiedSeatCount: occupancy.occupiedSeatCount ?? "No data"
       };
     }
 
@@ -1978,8 +1978,8 @@
         virtualCar4Active,
         activeTripCount: virtualCar4Active ? 4 : 3,
         message: virtualCar4Active
-          ? "Sefer eklendi. Toplam aktif sefer: 4"
-          : "Sefer azaltildi. Toplam aktif sefer: 3"
+          ? "Extra trip added. Total active trips: 4"
+          : "Trips reduced. Total active trips: 3"
       };
     }
 
@@ -2038,12 +2038,12 @@
         return `<span class="badge stop">${status}</span>`;
       }
 
-      return `<span class="badge unknown">${status || "Bilgi yok"}</span>`;
+      return `<span class="badge unknown">${status || "No data"}</span>`;
     }
 
     function getActionBadge(action) {
       if (!action) {
-        return `<span class="badge unknown">Bilgi yok</span>`;
+        return `<span class="badge unknown">No data</span>`;
       }
 
       if (action === "PID_FOLLOW" || action === "FOLLOW_CENTER" || action.includes("FOLLOW")) {
@@ -2154,7 +2154,7 @@
               class="${tripsStarted ? "stop-trips-button" : "start-trips-button"}"
               type="button"
               data-system-toggle>
-              ${tripsStarted ? "Seferleri Sonlandir" : "Seferleri Baslat"}
+              ${tripsStarted ? "Stop Trips" : "Start Trips"}
             </button>
           </div>
         </div>
@@ -2170,7 +2170,7 @@
             const connectionClass = getDeviceConnectionClass(item.data);
             const connectionLabel = getDeviceConnectionLabel(item.data);
             const ageSeconds = getDeviceLastSeenAgeSeconds(item.data);
-            const lastSeenAgeText = ageSeconds === null ? "Bilgi yok" : `${ageSeconds} sn once`;
+            const lastSeenAgeText = ageSeconds === null ? "No data" : `${ageSeconds} s ago`;
             return `
               <div class="device-status-card ${connectionClass}">
                 <div class="device-status-name">
@@ -2180,8 +2180,8 @@
                   </span>
                 </div>
                 <div class="device-meta">online flag: ${boolText(item.data?.online)}</div>
-                <div class="device-meta">Son gorulme: ${formatTimestamp(item.data?.lastSeen)}</div>
-                <div class="device-meta">Gecen sure: ${lastSeenAgeText}</div>
+                <div class="device-meta">Last seen: ${formatTimestamp(item.data?.lastSeen)}</div>
+                <div class="device-meta">Elapsed: ${lastSeenAgeText}</div>
                 <div class="device-meta">Wi-Fi: ${boolText(item.data?.wifiConnected)} | Firebase: ${boolText(item.data?.firebaseConnected)}</div>
                 <div class="device-meta">IP: ${valueOrNoData(item.data?.ip)}</div>
               </div>
@@ -2217,10 +2217,10 @@
       tripCapacityContainer.innerHTML = `
         <div class="system-card">
           <div class="telemetry-grid">
-            ${fieldBox("Aktif Sefer Sayisi", state.activeTripCount)}
-            ${fieldBox("Sanal Ek Sefer", state.virtualCar4Active ? '<span class="badge arrived">Aktif</span>' : '<span class="badge unknown">Pasif</span>')}
-            ${fieldBox("Bilgi", state.virtualCar4Active ? "Yogunluk nedeniyle ek sefer eklendi." : "Toplam aktif sefer: 3")}
-            ${state.virtualCar4Active ? fieldBox("car4", "Sanal arac / Ek sefer") : ""}
+            ${fieldBox("Active Trip Count", state.activeTripCount)}
+            ${fieldBox("Virtual Extra Trip", state.virtualCar4Active ? '<span class="badge arrived">Active</span>' : '<span class="badge unknown">Inactive</span>')}
+            ${fieldBox("Info", state.virtualCar4Active ? "Extra trip added due to high occupancy." : "Total active trips: 3")}
+            ${state.virtualCar4Active ? fieldBox("car4", "Virtual vehicle / Extra trip") : ""}
           </div>
         </div>
       `;
@@ -2244,15 +2244,15 @@
         <div class="pid-grid">
           ${EXPECTED_CARS.map(carId => `
             <div class="pid-card">
-              <h3>${carId} PID Ayarlari</h3>
+              <h3>${carId} PID Settings</h3>
               <div class="pid-form-grid">
                 <label>Kp<input id="pid-${carId}-kp" type="number" step="0.001" value="${pidValue(carId, "kp", 35)}" /></label>
                 <label>Ki<input id="pid-${carId}-ki" type="number" step="0.001" value="${pidValue(carId, "ki", 0)}" /></label>
                 <label>Kd<input id="pid-${carId}-kd" type="number" step="0.001" value="${pidValue(carId, "kd", 20)}" /></label>
-                <label>Base Speed<input id="pid-${carId}-baseSpeed" type="number" min="0" max="1023" step="1" value="${pidValue(carId, "baseSpeed", 250)}" /></label>
-                <label>Max Speed<input id="pid-${carId}-maxSpeed" type="number" min="0" max="1023" step="1" value="${pidValue(carId, "maxSpeed", 1023)}" /></label>
+                <label>Base Speed (0-255)<input id="pid-${carId}-baseSpeed" type="number" min="0" max="255" step="1" value="${pidValue(carId, "baseSpeed", 180)}" /></label>
+                <label>Max Speed (0-255)<input id="pid-${carId}-maxSpeed" type="number" min="0" max="255" step="1" value="${pidValue(carId, "maxSpeed", 255)}" /></label>
               </div>
-              <button class="pid-save-button" type="button" data-pid-save data-car-id="${carId}">Kaydet</button>
+              <button class="pid-save-button" type="button" data-pid-save data-car-id="${carId}">Save</button>
             </div>
           `).join("")}
         </div>
@@ -2334,10 +2334,10 @@
         ? ETA_INPUT_FEATURES
           .map(feature => `${feature}: ${valueOrNoData(predictionState.input?.[feature])}`)
           .join("<br>")
-        : "Bilgi yok";
+        : "No data";
       const predictionEtaText = predictionState.predictedSec === undefined ||
         predictionState.predictedSec === null
-        ? "Bilgi yok"
+        ? "No data"
         : `${predictionState.predictedSec}s`;
       const predictionStatusText = predictionState.message ||
         (predictionDisabledReason || "Ready");
@@ -2373,7 +2373,7 @@
               <div class="telemetry-grid">
                 ${fieldBox("Selected Car", carId)}
                 ${fieldBox("Active Route Version", activeVersion || "No active route version yet")}
-                ${fieldBox("Route Version", routeVersion || "Bilgi yok")}
+                ${fieldBox("Route Version", routeVersion || "No data")}
                 ${fieldBox("Car Model Status", statusBadge)}
                 ${fieldBox("Needs Retraining", boolText(etaModelMeta?.needsRetraining))}
                 ${fieldBox("Trained Route Version", valueOrNoData(etaModelMeta?.trainedRouteVersion))}
@@ -2430,14 +2430,14 @@
 
     function getManualSpeedValue(carId) {
       const input = document.getElementById(`manualSpeed-${carId}`);
-      const fallbackSpeed = manualControlsData?.[carId]?.speed ?? 300;
+      const fallbackSpeed = manualControlsData?.[carId]?.speed ?? 180;
       const rawSpeed = Number(input?.value ?? fallbackSpeed);
 
       if (!Number.isFinite(rawSpeed)) {
-        return 300;
+        return 180;
       }
 
-      return Math.max(0, Math.min(1023, Math.round(rawSpeed)));
+      return Math.max(0, Math.min(255, Math.round(rawSpeed)));
     }
 
     function getNextManualCommandVersion(carId) {
@@ -2481,7 +2481,11 @@
 
       manualActivePointerByCar[carId] = null;
 
-      writeManualControl(carId, false, "STOP")
+      // Releasing a button sends STOP but KEEPS manual mode enabled.
+      // Manual mode is only turned off by the "Disable Manual" toggle.
+      const keepEnabled = manualControlsData?.[carId]?.enabled === true;
+
+      writeManualControl(carId, keepEnabled, "STOP")
         .then(() => setManualFeedback(carId, "sent STOP"))
         .catch(error => {
           connectionStatus.innerText = "Manual STOP write error: " + error.message;
@@ -2568,9 +2572,9 @@
 
       if (offlineDevices.length > 0) {
         const shouldStart = window.confirm(
-          "Bazi ESP cihazlari bagli degil: " +
+          "Some ESP devices are offline: " +
           offlineDevices.join(", ") +
-          ". Yine de seferleri baslatmak istiyor musunuz?"
+          ". Do you still want to start the trips?"
         );
 
         if (!shouldStart) {
@@ -2598,14 +2602,14 @@
         kp: readPidInput(carId, "kp", 35),
         ki: readPidInput(carId, "ki", 0),
         kd: readPidInput(carId, "kd", 20),
-        baseSpeed: Math.max(0, Math.min(1023, Math.round(readPidInput(carId, "baseSpeed", 250)))),
-        maxSpeed: Math.max(0, Math.min(1023, Math.round(readPidInput(carId, "maxSpeed", 1023)))),
+        baseSpeed: Math.max(0, Math.min(255, Math.round(readPidInput(carId, "baseSpeed", 180)))),
+        maxSpeed: Math.max(0, Math.min(255, Math.round(readPidInput(carId, "maxSpeed", 255)))),
         updatedAt: now,
         updatedBy: auth.currentUser?.email || "unknown"
       };
 
       await set(ref(database, `cars/${carId}/pid`), pid);
-      showTripAlert(`${carId} PID ayarlari kaydedildi.`);
+      showTripAlert(`${carId} PID settings saved.`);
     }
 
     async function startTrips() {
@@ -2704,13 +2708,13 @@
               <span class="card-name">${car.carId || carId}</span>
               <span class="small-id">${manualActive ? '<span class="badge manual-badge">MANUAL MODE</span>' : carId}</span>
             </div>
-            <div class="mini-row">Baglanti: <span class="device-pill ${connectionClass}">${connectionLabel}</span></div>
+            <div class="mini-row">Connection: <span class="device-pill ${connectionClass}">${connectionLabel}</span></div>
             <div class="mini-row">IP: ${valueOrNoData(car.ip)}</div>
             <div class="mini-row">Status: ${getStatusBadge(car.status)}</div>
             <div class="mini-row">Manual: ${manualActive ? '<span class="badge manual-badge">ACTIVE</span>' : '<span class="badge unknown">OFF</span>'}</div>
             <div class="mini-row">Mode: ${valueOrNoData(car.mode)}</div>
-            <div class="mini-row">Konum: ${isCarEtaUsable(car) ? '<span class="badge arrived">Guvenilir</span>' : '<span class="badge stop">Onay Gerekli</span>'}</div>
-            <div class="mini-row">Doluluk: <span class="status-dot ${occupancy.color}"></span> ${occupancy.label}</div>
+            <div class="mini-row">Position: ${isCarEtaUsable(car) ? '<span class="badge arrived">Trusted</span>' : '<span class="badge stop">Needs Confirm</span>'}</div>
+            <div class="mini-row">Occupancy: <span class="status-dot ${occupancy.color}"></span> ${occupancy.label}</div>
             <div class="mini-row">Service: ${boolText(car.serviceActive)} | Calibration: ${boolText(car.calibrationActive)}</div>
             <div class="mini-row">Action: ${getActionBadge(car.action)}</div>
             <div class="mini-row">Next Station: ${valueOrNoData(car.nextStation)}</div>
@@ -2718,7 +2722,7 @@
             ${recoveryNeeded ? `
               <div class="system-actions">
                 <button class="recovery-button" type="button" data-recovery-open data-car-id="${carId}">
-                  Otomatik Moda Don
+                  Return to Auto Mode
                 </button>
               </div>
             ` : ""}
@@ -2731,11 +2735,11 @@
         <article class="panel-card">
           <div class="card-title">
             <span class="card-name">car4</span>
-            <span class="small-id">Sanal</span>
+            <span class="small-id">Virtual</span>
           </div>
-          <div class="mini-row">Ek sefer eklendi</div>
+          <div class="mini-row">Extra trip added</div>
           <div class="mini-row">ETA: -</div>
-          <div class="mini-row">Sebep: En az bir arac tamamen dolu</div>
+          <div class="mini-row">Reason: At least one vehicle is full</div>
         </article>
       ` : "";
 
@@ -2755,10 +2759,10 @@
               <span class="card-name">${stationName}</span>
               <span class="small-id">${expectedStation.id}</span>
             </div>
-            <div class="mini-row">Baglanti: <span class="device-pill ${online ? "online" : "offline"}">${online ? "Bagli" : "Bagli Degil"}</span></div>
+            <div class="mini-row">Connection: <span class="device-pill ${online ? "online" : "offline"}">${online ? "Connected" : "Disconnected"}</span></div>
             <div class="mini-row">Emergency: ${boolText(station.emergency)}</div>
-            <div class="mini-row">A Yonu: ${createEtaBoxes(getCarsForStationAndDirection(expectedStation.id, "A"), station.directionA)}</div>
-            <div class="mini-row">B Yonu: ${createEtaBoxes(getCarsForStationAndDirection(expectedStation.id, "B"), station.directionB)}</div>
+            <div class="mini-row">Direction A: ${createEtaBoxes(getCarsForStationAndDirection(expectedStation.id, "A"), station.directionA)}</div>
+            <div class="mini-row">Direction B: ${createEtaBoxes(getCarsForStationAndDirection(expectedStation.id, "B"), station.directionB)}</div>
           </article>
         `;
       }).join("");
@@ -2776,7 +2780,7 @@
       const connectionClass = getDeviceConnectionClass(car);
       const connectionLabel = getDeviceConnectionLabel(car);
       const lastSeenAgeSeconds = getDeviceLastSeenAgeSeconds(car);
-      const lastSeenAgeText = lastSeenAgeSeconds === null ? "Bilgi yok" : `${lastSeenAgeSeconds} sn once`;
+      const lastSeenAgeText = lastSeenAgeSeconds === null ? "No data" : `${lastSeenAgeSeconds} s ago`;
 
       detailContent.innerHTML = `
         <div class="detail-header">
@@ -2787,14 +2791,14 @@
               type="button"
               data-calibration-command
               data-car-id="${carId}">
-              Mesafe ve Sure Olcme Turu
+              Distance & Duration Calibration Lap
             </button>
             <button
               class="manual-mode-button ${isManualEnabled ? "manual-enabled" : ""}"
               type="button"
               data-manual-toggle
               data-car-id="${carId}">
-              ${isManualEnabled ? "Manueli Kapat" : "Manuel Kontrole Gec"}
+              ${isManualEnabled ? "Disable Manual" : "Switch to Manual Control"}
             </button>
             ${recoveryNeeded ? `
               <button
@@ -2802,49 +2806,49 @@
                 type="button"
                 data-recovery-open
                 data-car-id="${carId}">
-                Otomatik Moda Don
+                Return to Auto Mode
               </button>
             ` : ""}
           </div>
         </div>
 
-        <div class="sub-title">Admin Manuel Kontrol</div>
+        <div class="sub-title">Admin Manual Control</div>
         <div class="manual-panel">
           <div class="manual-warning">
-            Admin manuel kontrol ana surus kanali olarak kullanilir. Butona basili tutunca komut hemen gonderilir ve 250 ms aralikla tazelenir; birakinca STOP yazilir.
+            Admin manual control is the primary driving channel. Hold a button to send the command immediately (refreshed every 250 ms); release it to send STOP. Manual mode stays ON until you press "Disable Manual".
           </div>
           <div class="telemetry-grid">
-            ${fieldBox("Manuel Mod Durumu", isManualEnabled ? '<span class="badge manual-badge">Aktif</span>' : '<span class="badge unknown">Kapali</span>')}
-            ${fieldBox("Son Komut", valueOrNoData(manual.command))}
-            ${fieldBox("Son Guncelleyen", valueOrNoData(manual.updatedBy))}
+            ${fieldBox("Manual Mode Status", isManualEnabled ? '<span class="badge manual-badge">Active</span>' : '<span class="badge unknown">Off</span>')}
+            ${fieldBox("Last Command", valueOrNoData(manual.command))}
+            ${fieldBox("Last Updated By", valueOrNoData(manual.updatedBy))}
           </div>
 
           <div class="manual-speed-row">
-            <label for="manualSpeed-${carId}">Manuel Hiz PWM</label>
-            <input id="manualSpeed-${carId}" type="number" min="0" max="1023" value="${manualSpeed}" />
+            <label for="manualSpeed-${carId}">Manual Speed PWM (0-255)</label>
+            <input id="manualSpeed-${carId}" type="number" min="0" max="255" value="${manualSpeed}" />
           </div>
 
           <div class="manual-controls">
-            <button class="forward" type="button" data-manual-command="FORWARD" data-car-id="${carId}" ${manualDisabled}>Ileri</button>
-            <button type="button" data-manual-command="LEFT" data-car-id="${carId}" ${manualDisabled}>Sol</button>
-            <button type="button" data-manual-command="STOP" data-car-id="${carId}" ${manualDisabled}>Dur</button>
-            <button type="button" data-manual-command="RIGHT" data-car-id="${carId}" ${manualDisabled}>Sag</button>
-            <button class="backward" type="button" data-manual-command="BACKWARD" data-car-id="${carId}" ${manualDisabled}>Geri</button>
+            <button class="forward" type="button" data-manual-command="FORWARD" data-car-id="${carId}" ${manualDisabled}>Forward</button>
+            <button type="button" data-manual-command="LEFT" data-car-id="${carId}" ${manualDisabled}>Left</button>
+            <button type="button" data-manual-command="STOP" data-car-id="${carId}" ${manualDisabled}>Stop</button>
+            <button type="button" data-manual-command="RIGHT" data-car-id="${carId}" ${manualDisabled}>Right</button>
+            <button class="backward" type="button" data-manual-command="BACKWARD" data-car-id="${carId}" ${manualDisabled}>Backward</button>
           </div>
           <div class="manual-feedback" id="manualFeedback-${carId}"></div>
         </div>
 
-        <div class="sub-title">Genel Bilgi</div>
+        <div class="sub-title">General Info</div>
         <div class="telemetry-grid">
           ${fieldBox("Car ID", valueOrNoData(car.carId || carId))}
-          ${fieldBox("Baglanti", `<span class="device-pill ${connectionClass}">${connectionLabel}</span>`)}
+          ${fieldBox("Connection", `<span class="device-pill ${connectionClass}">${connectionLabel}</span>`)}
           ${fieldBox("online", boolText(car.online))}
           ${fieldBox("lastSeen", formatTimestamp(car.lastSeen))}
-          ${fieldBox("Son gorulme gecen sure", lastSeenAgeText)}
+          ${fieldBox("Last seen elapsed", lastSeenAgeText)}
           ${fieldBox("wifiConnected", boolText(car.wifiConnected))}
           ${fieldBox("firebaseConnected", boolText(car.firebaseConnected))}
           ${fieldBox("ip", valueOrNoData(car.ip))}
-          ${fieldBox("Arac Modu", valueOrNoData(car.mode))}
+          ${fieldBox("Vehicle Mode", valueOrNoData(car.mode))}
           ${fieldBox("Status", getStatusBadge(car.status))}
           ${fieldBox("active", boolText(car.active))}
           ${fieldBox("calibrationActive", boolText(car.calibrationActive))}
@@ -2856,9 +2860,9 @@
           ${fieldBox("Action", valueOrNoData(car.action))}
         </div>
 
-        <div class="sub-title">Doluluk</div>
+        <div class="sub-title">Occupancy</div>
         <div class="telemetry-grid">
-          ${fieldBox("Durum", `<div class="occupancy-row"><span>${occupancy.label}</span><span class="status-dot ${occupancy.color}"></span></div>`)}
+          ${fieldBox("Status", `<div class="occupancy-row"><span>${occupancy.label}</span><span class="status-dot ${occupancy.color}"></span></div>`)}
           ${fieldBox("fsr1Raw", valueOrNoData(occupancy.fsr1Raw))}
           ${fieldBox("fsr2Raw", valueOrNoData(occupancy.fsr2Raw))}
           ${fieldBox("occupiedSeatCount", valueOrNoData(occupancy.occupiedSeatCount))}
@@ -2868,7 +2872,7 @@
           ${fieldBox("adsReady", boolText(car.occupancy?.adsReady))}
         </div>
 
-        <div class="sub-title">Sefer / Rota Durumu</div>
+        <div class="sub-title">Trip / Route Status</div>
         <div class="telemetry-grid">
           ${fieldBox("positionKnown", boolText(car.positionKnown))}
           ${fieldBox("etaValid", boolText(car.etaValid))}
@@ -2902,7 +2906,7 @@
           ${fieldBox("route.averageSegmentDuration", formatDurationMs(routeData?.averageSegmentDuration))}
         </div>
 
-        <div class="sub-title">Manuel Kontrol Telemetri</div>
+        <div class="sub-title">Manual Control Telemetry</div>
         <div class="telemetry-grid">
           ${fieldBox("manualControls enabled", boolText(manual.enabled))}
           ${fieldBox("manualControls command", valueOrNoData(manual.command))}
@@ -2920,7 +2924,7 @@
           ${fieldBox("car.manualLastHttpCode", valueOrNoData(car.manualLastHttpCode))}
         </div>
 
-        <div class="sub-title">Cizgi Takibi</div>
+        <div class="sub-title">Line Following</div>
         <div class="telemetry-grid">
           ${fieldBox("L", valueOrNoData(car.line?.L ?? car.L))}
           ${fieldBox("M", valueOrNoData(car.line?.M ?? car.M))}
@@ -2950,7 +2954,7 @@
           ${fieldBox("pid.updatedAt", formatTimestamp(car.pid?.updatedAt))}
         </div>
 
-        <div class="sub-title">HC-SR04 Mesafe</div>
+        <div class="sub-title">HC-SR04 Distance</div>
         <div class="telemetry-grid">
           ${fieldBox("distanceCm", formatDistance(car.distanceCm))}
           ${fieldBox("distanceAction", valueOrNoData(car.distanceAction))}
@@ -2968,13 +2972,13 @@
           ${fieldBox("rightBoostActive", boolText(car.rightBoostActive))}
         </div>
 
-        <div class="sub-title">Hall Sensor / Durak Algilama</div>
+        <div class="sub-title">Hall Sensor / Station Detection</div>
         <div class="telemetry-grid">
           ${fieldBox("hallStatus", valueOrNoData(car.hall?.status ?? car.hallStatus))}
           ${fieldBox("stationDetected", boolText(car.hall?.stationDetected ?? car.stationDetected))}
         </div>
 
-        <div class="sub-title">FSR / Kapasite</div>
+        <div class="sub-title">FSR / Capacity</div>
         <div class="telemetry-grid">
           ${fieldBox("fsr1", valueOrNoData(car.fsr?.fsr1 ?? car.fsr1))}
           ${fieldBox("fsr2", valueOrNoData(car.fsr?.fsr2 ?? car.fsr2))}
@@ -3014,7 +3018,7 @@
           <span class="small-id">${stationId}</span>
         </div>
 
-        <div class="sub-title">Station Bilgisi</div>
+        <div class="sub-title">Station Info</div>
         <div class="telemetry-grid">
           ${fieldBox("Station ID", valueOrNoData(stationId))}
           ${fieldBox("Station Name", valueOrNoData(stationName))}
@@ -3024,20 +3028,20 @@
           ${fieldBox("firebaseConnected", boolText(station.firebaseConnected))}
           ${fieldBox("ip", valueOrNoData(station.ip))}
           ${fieldBox("Emergency Status", boolText(station.emergency))}
-          ${fieldBox("Stop Indexes", stationStops.length ? stationStops.map(stop => "stop" + stop).join(", ") : "Bilgi yok")}
+          ${fieldBox("Stop Indexes", stationStops.length ? stationStops.map(stop => "stop" + stop).join(", ") : "No data")}
         </div>
 
-        <div class="sub-title">A Yonu ETA</div>
+        <div class="sub-title">Direction A ETA</div>
         <div class="eta-list">
           ${createEtaBoxes(getCarsForStationAndDirection(stationId, "A"), station.directionA)}
         </div>
 
-        <div class="sub-title">B Yonu ETA</div>
+        <div class="sub-title">Direction B ETA</div>
         <div class="eta-list">
           ${createEtaBoxes(getCarsForStationAndDirection(stationId, "B"), station.directionB)}
         </div>
 
-        <div class="sub-title">Bu Istasyona Yaklasan Araclar</div>
+        <div class="sub-title">Vehicles Approaching This Station</div>
         <div class="telemetry-grid">
           ${
             approachingCars.length
@@ -3045,7 +3049,7 @@
                   car.carId || "car",
                   `Next stop: ${valueOrNoData(car.nextStopIndex)} | ETA: ${formatEta(getCarEtaValue(car))} | Status: ${valueOrNoData(car.status)}`
                 )).join("")
-              : fieldBox("Arac", "Bilgi yok")
+              : fieldBox("Vehicle", "No data")
           }
         </div>
       `;
@@ -3234,7 +3238,7 @@
       try {
         await signInWithEmailAndPassword(auth, email, password);
       } catch (error) {
-        loginError.innerText = "Giris basarisiz: " + error.message;
+        loginError.innerText = "Sign-in failed: " + error.message;
       }
     });
 
@@ -3404,9 +3408,15 @@
       const calibrationButton = event.target.closest("[data-calibration-command]");
       if (calibrationButton) {
         const carId = calibrationButton.dataset.carId;
-        sendCarCommand(carId, "START_CALIBRATION", "calibration").catch(error => {
-          connectionStatus.innerText = "Calibration command error: " + error.message;
-        });
+        // Ensure an active route version exists so ML training can use the samples.
+        const ensureRouteVersion = Number(systemData?.activeRouteVersion || 0) >= 1
+          ? Promise.resolve()
+          : update(ref(database, "system"), { activeRouteVersion: 1, routeCalibrated: true });
+        ensureRouteVersion
+          .then(() => sendCarCommand(carId, "START_CALIBRATION", "calibration"))
+          .catch(error => {
+            connectionStatus.innerText = "Calibration command error: " + error.message;
+          });
         return;
       }
 
@@ -3448,7 +3458,7 @@
       }
 
       if (!ADMIN_EMAILS.includes(user.email)) {
-        loginError.innerText = "Bu kullanici admin yetkisine sahip degil.";
+        loginError.innerText = "This user does not have admin permission.";
         await signOut(auth);
         return;
       }

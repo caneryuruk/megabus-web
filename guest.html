@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -300,11 +300,11 @@
 <body>
   <header>
     <h1>MEGABUS Live ETA Panel</h1>
-    <p>Yolcular icin canli istasyon ve yaklasan arac bilgisi</p>
+    <p>Live station and approaching vehicle info for passengers</p>
   </header>
 
   <main class="container">
-    <div class="section-title">Arac Doluluk Durumu</div>
+    <div class="section-title">Vehicle Occupancy</div>
     <section class="vehicle-grid" id="vehiclesContainer"></section>
     <div class="trip-message hidden" id="tripMessage"></div>
 
@@ -368,7 +368,7 @@
 
     function valueOrNoData(value, suffix = "") {
       if (value === undefined || value === null || value === "") {
-        return "Bilgi yok";
+        return "No data";
       }
 
       return value + suffix;
@@ -488,10 +488,10 @@
         "gray"
       );
       const label = occupancy.label || (
-        status === "full" ? "Tamamen dolu" :
-        status === "partial" ? "Biraz dolu" :
-        status === "empty" ? "Bos" :
-        "Bilgi yok"
+        status === "full" ? "Full" :
+        status === "partial" ? "Partially full" :
+        status === "empty" ? "Empty" :
+        "No data"
       );
 
       return { status, color, label };
@@ -503,8 +503,8 @@
         virtualCar4Active,
         activeTripCount: virtualCar4Active ? 4 : 3,
         message: virtualCar4Active
-          ? "Yogunluk nedeniyle ek sefer eklendi."
-          : "Sefer azaltildi. Toplam aktif sefer: 3"
+          ? "Extra trip added due to high occupancy."
+          : "Trips reduced. Total active trips: 3"
       };
     }
 
@@ -538,7 +538,7 @@
             <div class="vehicle-name">${car.carId || carId}</div>
             <div class="vehicle-row"><span>ETA</span><strong>${renderEtaValue(car)}</strong></div>
             <div class="vehicle-row">
-              <span>Doluluk</span>
+              <span>Occupancy</span>
               <strong>${occupancy.label} <span class="status-dot ${occupancy.color}"></span></strong>
             </div>
           </article>
@@ -547,9 +547,9 @@
 
       const virtualHtml = tripState.virtualCar4Active ? `
         <article class="vehicle-card">
-          <div class="vehicle-name">Ek Sefer</div>
-          <div class="vehicle-row"><span>car4</span><strong>Sanal</strong></div>
-          <div class="vehicle-row"><span>Bilgi</span><strong>Yogunluk nedeniyle ek sefer eklendi.</strong></div>
+          <div class="vehicle-name">Extra Trip</div>
+          <div class="vehicle-row"><span>car4</span><strong>Virtual</strong></div>
+          <div class="vehicle-row"><span>Info</span><strong>Extra trip added due to high occupancy.</strong></div>
         </article>
       ` : "";
 
@@ -631,14 +631,14 @@
             </div>
 
             <div class="direction">
-              <h2>A Yonu</h2>
+              <h2>Direction A</h2>
               <div class="eta-list">
                 ${createEtaBoxes(directionACars, station.directionA)}
               </div>
             </div>
 
             <div class="direction">
-              <h2>B Yonu</h2>
+              <h2>Direction B</h2>
               <div class="eta-list">
                 ${createEtaBoxes(directionBCars, station.directionB)}
               </div>
