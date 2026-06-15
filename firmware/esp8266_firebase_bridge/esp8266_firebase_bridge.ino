@@ -31,12 +31,16 @@
 #include "secrets.h"
 
 // ==================== ZAMANLAMA ====================
-#define MANUAL_POLL_MS       600    // manualControls polling aralığı
-#define COMMAND_POLL_MS      400    // commands polling aralığı
+#define MANUAL_POLL_MS       300    // manualControls polling — düşük gecikme için hızlı
+#define COMMAND_POLL_MS      800    // commands polling (mod nadiren değişir)
 #define TELEMETRY_PUSH_MS    800    // Firebase'e telemetry yazma aralığı
 #define WIFI_RETRY_MS      30000    // Wi-Fi yeniden bağlanma denemesi
-#define MANUAL_TIMEOUT_MS   2000    // Bu kadar sessizlik → STOP gönder
-#define PID_POLL_MS         1500    // PID ayarları polling aralığı
+#define PID_POLL_MS         2000    // PID ayarları polling aralığı
+#define HTTP_TIMEOUT_MS     4000    // HTTPS çağrıları için zaman aşımı (takılma önler)
+
+// Güvenlik: manualControls okuması bu kadar süredir başarılı olmuyorsa
+// (WiFi/Firebase kesik) araca STOP gönder. Latch yalnızca bağlantı varken sürer.
+#define MANUAL_STALE_MS     1500
 
 // ==================== URL YARDIMCILARI ====================
 // Stack'e geçici String basarız; tek seferlik HTTP çağrısı için yeterli.
@@ -57,13 +61,13 @@ String mlUrl()            { return fbUrl("/mlTrainingData/" CAR_ID); }
 bool  wifiOk            = false;
 unsigned long lastWifiRetry = 0;
 
-// Manuel kontrol durumu
+// Manuel kontrol durumu (latch: komut STOP'a kadar sürer)
 bool  manualEnabled      = false;
 char  manualCmd[12]      = "STOP";
 int   manualSpeed        = 0;
 String lastManualVersion = "";
-unsigned long lastManualCmdMs = 0;
-unsigned long lastManualPollMs = 0;
+unsigned long lastManualPollMs   = 0;
+unsigned long lastManualPollOkMs = 0;  // son BAŞARILI manualControls okuması (staleness güvenliği)
 
 // Araç komutu durumu
 char  vehicleMode[12]    = "idle";
@@ -130,6 +134,7 @@ String httpGet(const String& url) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
+  https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return "";
   int code = https.GET();
   String body = (code == HTTP_CODE_OK) ? https.getString() : "";
@@ -142,6 +147,7 @@ int httpPatch(const String& url, const String& json) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
+  https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return -1;
   https.addHeader(F("Content-Type"), F("application/json"));
   int code = https.sendRequest("PATCH", json);
@@ -154,6 +160,7 @@ int httpPost(const String& url, const String& json) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
+  https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return -1;
   https.addHeader(F("Content-Type"), F("application/json"));
   int code = https.POST(json);
@@ -258,17 +265,17 @@ void readManualControlIfNeeded() {
   lastManualPollMs = millis();
 
   String body = httpGet(manualControlUrl());
-  if (body.length() == 0) return;
+  if (body.length() == 0) return;            // başarısız okuma → staleness güvenliği devreye girer
+  lastManualPollOkMs = millis();             // başarılı okuma → bağlantı canlı
 
   bool  en      = jsonBool(body, "enabled");
   String cmd    = jsonStr(body, "command", "STOP");
   int   spd     = jsonInt(body, "speed", 0);
   String ver    = jsonStr(body, "commandVersion", "0");
 
-  // Yeni komut mu?
+  // LATCH: yeni komut sürümü geldiğinde bir kez uygula, STOP'a kadar sürer.
   if (ver != lastManualVersion) {
     lastManualVersion = ver;
-    lastManualCmdMs   = millis();
     strncpy(manualCmd, cmd.c_str(), sizeof(manualCmd) - 1);
     manualSpeed    = constrain(spd, 0, 255);
     manualEnabled  = en;
@@ -281,18 +288,13 @@ void readManualControlIfNeeded() {
     Serial1.println(spd);
   }
 
-  // Enabled false ise veya timeout → STOP
+  // Manuel kapatıldıysa hemen STOP
   if (!en) {
     manualEnabled = false;
     strncpy(manualCmd, "STOP", sizeof(manualCmd));
     manualSpeed = 0;
   }
-
-  // Manuel timeout güvenliği: son komuttan bu yana > 2sn → STOP
-  if (manualEnabled && millis() - lastManualCmdMs > MANUAL_TIMEOUT_MS) {
-    strncpy(manualCmd, "STOP", sizeof(manualCmd));
-    Serial1.println(F("[MANUAL] timeout → STOP"));
-  }
+  // NOT: Sürüm bazlı timeout YOK (latch). Güvenlik staleness ile pushCommandToArduino'da.
 }
 
 // ==================== VEHICLE COMMAND POLLİNG ====================
@@ -320,6 +322,17 @@ void readVehicleCommandIfNeeded() {
 
 // ==================== ARDUINO'YA GÜNCEL MOD/KOMUT GÖNDER ====================
 void pushCommandToArduino() {
+  // GÜVENLİK: WiFi kesik veya manualControls okuması bayatladıysa (Firebase erişilemez)
+  // araca STOP gönder. Latch yalnızca bağlantı canlıyken sürer.
+  bool linkStale = (lastManualPollOkMs != 0 &&
+                    millis() - lastManualPollOkMs > MANUAL_STALE_MS);
+  if (!wifiOk || linkStale) {
+    // Latch'i temizle ki bağlantı dönünce araç kendiliğinden harekete geçmesin
+    strncpy(manualCmd, "STOP", sizeof(manualCmd));
+    sendToArduino(vehicleMode, manualEnabled, "STOP", 0);
+    return;
+  }
+
   // Manuel etkinken GERÇEK modu koru (ör. calibration) + manuel bayrağını set et.
   // Böylece Arduino kalibrasyon modunda olduğunu bilir ve manuel sırasında
   // ölçümü SIFIRLAMAZ, sadece DURAKLATIR. (Mod="manual" gönderirsek ölçüm sıfırlanır.)
@@ -548,5 +561,5 @@ void loop() {
   uploadSegmentIfPending();
   pushTelemetryIfNeeded();
 
-  delay(10);
+  delay(2);
 }

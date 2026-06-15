@@ -99,6 +99,10 @@
                                      // kalır; uzun aralık = komut satırları kesilmez
 #define DEBUG_INTERVAL_MS     500
 
+// Güvenlik: ESP'den bu kadar süre komut gelmezse (ESP çökmesi/kablo) motoru durdur.
+// (WiFi kesilince ESP zaten STOP gönderir; bu watchdog ESP'nin tamamen susmasına karşı.)
+#define CMD_TIMEOUT_MS        2000
+
 // Mesafe eşikleri
 #define DIST_STOP_CM       8.0f
 #define DIST_VERY_SLOW_CM 18.0f
@@ -216,6 +220,7 @@ char  vehicleMode[12] = "idle";   // idle | auto | manual | stopped
 bool  manualEnabled   = false;
 char  manualCmd[12]   = "STOP";
 int   manualSpeed     = 0;
+unsigned long lastCmdRecvMs = 0;  // son geçerli >C komutunun alındığı an (watchdog)
 
 // Zamanlayıcılar
 unsigned long lastDistMs      = 0;
@@ -441,7 +446,8 @@ void readDistanceIfNeeded() {
   digitalWrite(PIN_TRIG, HIGH); delayMicroseconds(10);
   digitalWrite(PIN_TRIG, LOW);
 
-  unsigned long dur = pulseIn(PIN_ECHO, HIGH, 18000);
+  // 12000µs ≈ ~206cm max; engel yokken döngüyü 18ms yerine 12ms bloklar
+  unsigned long dur = pulseIn(PIN_ECHO, HIGH, 12000);
   if (dur == 0) { distCm = -1; distStop = false; baseSpeed = configuredBaseSpeed; return; }
 
   distCm = dur / 58.0f;
@@ -768,6 +774,7 @@ void parseEspCommand(char* line) {
   manualEnabled = tmpEn;
   strncpy(manualCmd, tmpCmd, sizeof(manualCmd) - 1);
   manualSpeed = tmpSpd;
+  lastCmdRecvMs = millis();   // watchdog: ESP canlı
 }
 
 void parseEspPid(char* line) {
@@ -984,9 +991,16 @@ void loop() {
   // Ölçüm durum makinesi her döngü çalışır (manuel duraklatmayı yönetir)
   updateMeasurement();
 
+  // Güvenlik watchdog: ESP'den uzun süredir komut gelmiyorsa (ESP çöktü/koptu) dur.
+  bool commsLost = (lastCmdRecvMs != 0 && millis() - lastCmdRecvMs > CMD_TIMEOUT_MS);
+
   // ---- Mod yönlendirme ----
-  // Manuel her zaman önceliklidir (mod ne olursa olsun manualEnabled=1 ise sür).
-  if (manualEnabled) {
+  if (commsLost) {
+    stopMotors();
+    resetPID();
+    strcpy(action, "COMMS_LOST");
+  } else if (manualEnabled) {
+    // Manuel her zaman önceliklidir (mod ne olursa olsun manualEnabled=1 ise sür).
     updateManualMovement();
   } else if (strcmp(vehicleMode, "calibration") == 0) {
     // Ölçüm modu: çizgi takip + Hall'da segment mesafe/süre ölç
@@ -1006,5 +1020,5 @@ void loop() {
   sendTelemetry();
   printDebugIfNeeded();
 
-  delay(3);
+  delay(1);
 }

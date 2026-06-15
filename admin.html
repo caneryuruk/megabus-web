@@ -994,8 +994,6 @@
     let etaPredictionStateByCar = {};
     let selectedEtaCarId = "car1";
     let manualCommandVersionByCar = {};
-    let manualHoldTimerByCar = {};
-    let manualActivePointerByCar = {};
     let systemUnsubscribe = null;
     let carsUnsubscribe = null;
     let stationsUnsubscribe = null;
@@ -2473,57 +2471,21 @@
       }
     }
 
-    function stopManualHold(carId) {
-      if (manualHoldTimerByCar[carId]) {
-        clearInterval(manualHoldTimerByCar[carId]);
-        manualHoldTimerByCar[carId] = null;
-      }
-
-      manualActivePointerByCar[carId] = null;
-
-      // Releasing a button sends STOP but KEEPS manual mode enabled.
-      // Manual mode is only turned off by the "Disable Manual" toggle.
-      const keepEnabled = manualControlsData?.[carId]?.enabled === true;
-
-      writeManualControl(carId, keepEnabled, "STOP")
-        .then(() => setManualFeedback(carId, "sent STOP"))
-        .catch(error => {
-          connectionStatus.innerText = "Manual STOP write error: " + error.message;
-        });
-    }
-
-    function startManualHold(commandButton, pointerId = "touch") {
-      if (!commandButton || commandButton.disabled) {
-        return;
-      }
-
-      const carId = commandButton.dataset.carId;
-      const command = commandButton.dataset.manualCommand;
-
+    // Click-to-latch: one click sends the command once. The vehicle keeps moving
+    // in that direction until STOP is clicked. Manual mode stays ON until the
+    // "Disable Manual" toggle is pressed. The vehicle stops automatically on the
+    // car side if the Wi-Fi/Firebase connection drops.
+    function sendManualCommand(carId, command) {
       if (!carId || !command) {
         return;
       }
 
-      if (manualActivePointerByCar[carId] !== null && manualActivePointerByCar[carId] !== undefined) {
-        stopManualHold(carId);
-      }
-
-      manualActivePointerByCar[carId] = pointerId;
-
-      if (command === "STOP") {
-        stopManualHold(carId);
-        return;
-      }
-
-      const sendCommand = () => {
-        setManualFeedback(carId, `sent ${command}`);
-        writeManualControl(carId, true, command).catch(error => {
+      // Keep manual mode enabled; STOP just halts the car (manual stays ON).
+      writeManualControl(carId, true, command)
+        .then(() => setManualFeedback(carId, `sent ${command}`))
+        .catch(error => {
           connectionStatus.innerText = "Manual command write error: " + error.message;
         });
-      };
-
-      sendCommand();
-      manualHoldTimerByCar[carId] = setInterval(sendCommand, 250);
     }
 
     async function sendCarCommand(carId, command, mode, extra = {}) {
@@ -2815,7 +2777,7 @@
         <div class="sub-title">Admin Manual Control</div>
         <div class="manual-panel">
           <div class="manual-warning">
-            Admin manual control is the primary driving channel. Hold a button to send the command immediately (refreshed every 250 ms); release it to send STOP. Manual mode stays ON until you press "Disable Manual".
+            Admin manual control is the primary driving channel. Click a direction once and the vehicle keeps moving that way until you click Stop. Manual mode stays ON until you press "Disable Manual". The vehicle stops automatically if the Wi-Fi/Firebase connection drops.
           </div>
           <div class="telemetry-grid">
             ${fieldBox("Manual Mode Status", isManualEnabled ? '<span class="badge manual-badge">Active</span>' : '<span class="badge unknown">Off</span>')}
@@ -3287,81 +3249,6 @@
         });
     });
 
-    document.addEventListener("pointerdown", (event) => {
-      const commandButton = event.target.closest("[data-manual-command]");
-      if (!commandButton || commandButton.disabled) {
-        return;
-      }
-
-      event.preventDefault();
-      if (commandButton.setPointerCapture) {
-        commandButton.setPointerCapture(event.pointerId);
-      }
-      startManualHold(commandButton, event.pointerId);
-    });
-
-    document.addEventListener("pointerup", (event) => {
-      const commandButton = event.target.closest("[data-manual-command]");
-      if (!commandButton) {
-        return;
-      }
-
-      event.preventDefault();
-      stopManualHold(commandButton.dataset.carId);
-    });
-
-    document.addEventListener("pointercancel", (event) => {
-      const commandButton = event.target.closest("[data-manual-command]");
-      if (!commandButton) {
-        return;
-      }
-
-      event.preventDefault();
-      stopManualHold(commandButton.dataset.carId);
-    });
-
-    document.addEventListener("pointerleave", (event) => {
-      const commandButton = event.target.closest("[data-manual-command]");
-      if (!commandButton) {
-        return;
-      }
-
-      event.preventDefault();
-      stopManualHold(commandButton.dataset.carId);
-    }, true);
-
-    if (!window.PointerEvent) {
-      document.addEventListener("touchstart", (event) => {
-        const commandButton = event.target.closest("[data-manual-command]");
-        if (!commandButton || commandButton.disabled) {
-          return;
-        }
-
-        event.preventDefault();
-        startManualHold(commandButton, "touch");
-      }, { passive: false });
-
-      document.addEventListener("touchend", (event) => {
-        const commandButton = event.target.closest("[data-manual-command]");
-        if (!commandButton) {
-          return;
-        }
-
-        event.preventDefault();
-        stopManualHold(commandButton.dataset.carId);
-      }, { passive: false });
-
-      document.addEventListener("touchcancel", (event) => {
-        const commandButton = event.target.closest("[data-manual-command]");
-        if (!commandButton) {
-          return;
-        }
-
-        event.preventDefault();
-        stopManualHold(commandButton.dataset.carId);
-      }, { passive: false });
-    }
-
     document.addEventListener("click", (event) => {
       const systemToggle = event.target.closest("[data-system-toggle]");
       if (systemToggle) {
@@ -3434,6 +3321,9 @@
       const commandButton = event.target.closest("[data-manual-command]");
       if (commandButton) {
         event.preventDefault();
+        if (!commandButton.disabled) {
+          sendManualCommand(commandButton.dataset.carId, commandButton.dataset.manualCommand);
+        }
         return;
       }
 
