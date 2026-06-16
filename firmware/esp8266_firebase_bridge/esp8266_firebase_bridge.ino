@@ -33,13 +33,13 @@
 // ==================== ZAMANLAMA ====================
 // Düşük gecikme: manuel'i HIZLI poll'la + TLS oturum RESUME ile handshake'i kısalt
 // (~1sn yerine ~300ms). Diğerleri (mod/pid/telemetri) latency-kritik değil, seyrek.
-#define MANUAL_POLL_MS       120    // manualControls — hızlı (GET süresi kadar)
-#define COMMAND_POLL_MS     2000    // commands (mod nadiren değişir)
-#define TELEMETRY_PUSH_MS   2000    // Firebase'e telemetry yazma (panel için, kritik değil)
+#define MANUAL_POLL_MS        50    // manualControls — keep-alive ile GET ~100-200ms
+#define COMMAND_POLL_MS     8000    // commands (mod nadiren değişir)
+#define TELEMETRY_PUSH_MS   5000    // Firebase'e telemetry yazma (panel için, kritik değil)
 #define WIFI_RETRY_MS      30000    // Wi-Fi yeniden bağlanma denemesi
-#define PID_POLL_MS         5000    // PID ayarları (yalnızca Save'de değişir)
+#define PID_POLL_MS        15000    // PID ayarları (yalnızca Save'de değişir)
 #define HTTP_TIMEOUT_MS     4000    // HTTPS çağrıları için zaman aşımı (takılma önler)
-#define CONN_LOST_MS        2000    // manuel veri bu kadar süredir gelmiyorsa → STOP (güvenlik)
+#define CONN_LOST_MS        2500    // manuel veri bu kadar süredir gelmiyorsa → STOP (güvenlik)
 
 // ==================== URL YARDIMCILARI ====================
 // Stack'e geçici String basarız; tek seferlik HTTP çağrısı için yeterli.
@@ -68,9 +68,15 @@ unsigned long lastManualOkMs = 0;       // son başarılı manuel okuma (bağlan
 String lastManualVersion = "";          // sürüm dedup
 unsigned long lastManualPollMs = 0;     // poll zamanlayıcı
 
-// TLS oturumu — aynı Firebase host'una tekrar bağlanırken handshake'i RESUME ile
-// kısaltır (~1sn → ~300ms). Gecikmeyi düşürmenin anahtarı bu.
+// TLS oturumu — transient çağrılarda handshake'i RESUME ile kısaltır.
 BearSSL::Session firebaseSession;
+
+// Manuel için KALICI keep-alive bağlantı: ilk istekte handshake (~1sn), sonraki
+// istekler bağlantıyı YENİDEN KULLANIR (handshake yok → ~100-200ms). <1sn gecikmenin anahtarı.
+BearSSL::WiFiClientSecure manualClient;
+HTTPClient manualHttp;
+bool manualHttpReady = false;
+unsigned long lastManualConnAttempt = 0;
 
 // Araç komutu durumu
 char  vehicleMode[12]    = "idle";
@@ -272,20 +278,12 @@ void readPidIfNeeded() {
   Serial1.print(F(" base="));    Serial1.println(base);
 }
 
-// ==================== MANUAL CONTROL — HIZLI POLLING (oturum resume) ====================
-// manualControls'u hızlı poll eder; TLS oturum resume sayesinde her GET ~300ms.
-// Latch: yeni commandVersion gelene kadar son komut sürer (STOP'a kadar devam).
-void readManualControl() {
-  if (!wifiOk) return;
-  if (millis() - lastManualPollMs < MANUAL_POLL_MS) return;
-  lastManualPollMs = millis();
-
-  String body = httpGet(manualControlUrl());
-  if (body.length() == 0) return;            // okuma başarısız → sağlık güncellenmez
-  lastManualOkMs = millis();                 // başarılı okuma → bağlantı sağlam
-
+// ==================== MANUAL CONTROL — KEEP-ALIVE POLLING ====================
+// Tek kalıcı HTTPS bağlantısı üzerinden manualControls'u poll eder. setReuse(true)
+// sayesinde ilk GET handshake yapar, sonrakiler bağlantıyı yeniden kullanır → ~100-200ms.
+void applyManualBody(const String& body) {
   String ver = jsonStr(body, "commandVersion", "0");
-  if (ver == lastManualVersion) return;      // değişiklik yok → çık (hızlı)
+  if (ver == lastManualVersion) return;      // değişiklik yok
   lastManualVersion = ver;
 
   bool en = jsonBool(body, "enabled");
@@ -302,6 +300,39 @@ void readManualControl() {
   Serial1.print(F("[MANUAL] en=")); Serial1.print(en);
   Serial1.print(F(" cmd=")); Serial1.print(manualCmd);
   Serial1.print(F(" spd=")); Serial1.println(manualSpeed);
+}
+
+void readManualControl() {
+  if (!wifiOk) {
+    if (manualHttpReady) { manualHttp.end(); manualHttpReady = false; }
+    return;
+  }
+  if (millis() - lastManualPollMs < MANUAL_POLL_MS) return;
+  lastManualPollMs = millis();
+
+  // Kalıcı bağlantıyı (gerekirse) kur — handshake yalnızca ilk seferde.
+  if (!manualHttpReady) {
+    if (millis() - lastManualConnAttempt < 1000) return;   // backoff
+    lastManualConnAttempt = millis();
+    manualClient.setInsecure();
+    manualHttp.setReuse(true);                              // KEEP-ALIVE
+    manualHttp.setTimeout(HTTP_TIMEOUT_MS);
+    if (!manualHttp.begin(manualClient, manualControlUrl())) return;
+    manualHttpReady = true;
+  }
+
+  int code = manualHttp.GET();
+  if (code <= 0) {                       // bağlantı koptu → sıfırla, yeniden kur
+    manualHttp.end();
+    manualHttpReady = false;
+    return;
+  }
+  if (code != HTTP_CODE_OK) return;      // bağlantıyı koru, bu turu atla
+
+  String body = manualHttp.getString();
+  if (body.length() == 0) return;
+  lastManualOkMs = millis();             // başarılı okuma → bağlantı sağlam
+  applyManualBody(body);
 }
 // ==================== VEHICLE COMMAND POLLİNG ====================
 void readVehicleCommandIfNeeded() {
