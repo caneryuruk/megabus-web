@@ -31,22 +31,18 @@
 #include "secrets.h"
 
 // ==================== ZAMANLAMA ====================
-// NOT: ESP8266'da her HTTPS isteği (BearSSL handshake) ~0.5-1sn sürer. Düşük manuel
-// gecikme için MANUEL poll'u önceliklendiriyoruz: manuel'i mümkün olduğunca sık,
-// diğerlerini (mod/pid/telemetri nadiren gerekir) çok seyrek yapıyoruz.
-// Böylece çoğu loop yalnızca bir manuel GET yapar → gecikme ~tek istek süresi (~1sn).
-#define MANUAL_POLL_MS         0    // manualControls — beklemeden, HTTPS hızı kadar sık
-#define COMMAND_POLL_MS     4000    // commands (mod nadiren değişir)
-#define TELEMETRY_PUSH_MS   2500    // Firebase'e telemetry yazma (panel için, kritik değil)
+// Manuel kontrol artık POLLING değil STREAMING (SSE) ile geliyor → ~200-400ms gecikme.
+// Diğerleri (mod/pid/telemetri) latency-kritik değil, seyrek polling yeterli.
+#define COMMAND_POLL_MS     5000    // commands (mod nadiren değişir)
+#define TELEMETRY_PUSH_MS   3000    // Firebase'e telemetry yazma (panel için, kritik değil)
 #define WIFI_RETRY_MS      30000    // Wi-Fi yeniden bağlanma denemesi
-#define PID_POLL_MS         8000    // PID ayarları (yalnızca Save'de değişir)
+#define PID_POLL_MS        10000    // PID ayarları (yalnızca Save'de değişir)
 #define HTTP_TIMEOUT_MS     4000    // HTTPS çağrıları için zaman aşımı (takılma önler)
 
-// Güvenlik: manualControls okuması üst üste bu kadar kez başarısız olursa
-// (WiFi/Firebase kopuk) araca STOP gönder. Bu ZAMAN değil HATA sayısı tabanlı:
-// bağlantı sağlamken poll'lar başarılı olur → sayaç 0 → asla durmaz (latch sürer).
-// 3 hata × 500ms ≈ 1.5sn gerçek kopma → STOP.
-#define MANUAL_FAIL_LIMIT   3
+// ==================== MANUEL STREAMING ====================
+#define STREAM_RECONNECT_MS  1500   // stream koptuysa yeniden deneme aralığı
+#define STREAM_STALE_MS     60000   // bu kadar süre bayt/keep-alive yoksa yeniden bağlan
+#define CONN_LOST_MS         2000   // stream bu kadar süredir sağlıksızsa → STOP (güvenlik)
 
 // ==================== URL YARDIMCILARI ====================
 // Stack'e geçici String basarız; tek seferlik HTTP çağrısı için yeterli.
@@ -67,15 +63,21 @@ String mlUrl()            { return fbUrl("/mlTrainingData/" CAR_ID); }
 bool  wifiOk            = false;
 unsigned long lastWifiRetry = 0;
 
-// Manuel poll bağlantı sağlığı: üst üste başarısızlık = bağlantı kopuk
-int   manualPollFails  = 0;
-
 // Manuel kontrol durumu (latch: komut STOP'a kadar sürer)
 bool  manualEnabled      = false;
 char  manualCmd[12]      = "STOP";
 int   manualSpeed        = 0;
-String lastManualVersion = "";
-unsigned long lastManualPollMs   = 0;
+unsigned long lastManualOkMs = 0;       // manuel veri (stream VEYA poll) son sağlıklı an
+String lastManualVersion = "";          // poll fallback için sürüm dedup
+unsigned long lastManualPollMs = 0;     // poll fallback zamanlayıcı
+
+// Manuel kontrol — Firebase streaming (SSE) durumu
+BearSSL::WiFiClientSecure streamClient;
+bool   streamConnected      = false;
+unsigned long lastStreamByteMs    = 0;  // son bayt/keep-alive
+unsigned long lastStreamAttemptMs = 0;
+String streamLine  = "";
+String streamEvent = "";
 
 // Araç komutu durumu
 char  vehicleMode[12]    = "idle";
@@ -137,8 +139,13 @@ void maintainWifi() {
 }
 
 // ==================== HTTP YARDIMCILARI ====================
+// Transient HTTPS bir handshake için ~16KB ister. Kalıcı manuel stream açıkken
+// bellek düşükse bu çağrıları atla → stream çökmesin (manuel kontrol önceliklidir).
+bool heapOkForHttps() { return ESP.getFreeHeap() > 20000; }
+
 // GET → response body döner, hata varsa boş String
 String httpGet(const String& url) {
+  if (!heapOkForHttps()) return "";
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
@@ -152,6 +159,7 @@ String httpGet(const String& url) {
 
 // PATCH → gönder, http kodu döner
 int httpPatch(const String& url, const String& json) {
+  if (!heapOkForHttps()) return -1;
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
@@ -165,6 +173,7 @@ int httpPatch(const String& url, const String& json) {
 
 // POST → Firebase'de yeni push anahtarı oluşturur (mlTrainingData için)
 int httpPost(const String& url, const String& json) {
+  if (!heapOkForHttps()) return -1;
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
   HTTPClient https;
@@ -266,46 +275,180 @@ void readPidIfNeeded() {
   Serial1.print(F(" base="));    Serial1.println(base);
 }
 
-// ==================== MANUAL CONTROL POLLİNG ====================
-void readManualControlIfNeeded() {
+// ==================== MANUAL CONTROL — FIREBASE STREAMING (SSE) ====================
+// Kalıcı bağlantı: Firebase manualControls değişince ANINDA push eder.
+// Polling'in ~1sn handshake gecikmesi YOK → manuel gecikme ~200-400ms.
+
+String firebaseHost() {
+  String h = String(FIREBASE_URL);
+  h.replace("https://", "");
+  h.replace("http://", "");
+  int slash = h.indexOf('/');
+  if (slash >= 0) h = h.substring(0, slash);
+  return h;
+}
+
+void connectManualStream() {
+  streamClient.stop();
+  streamConnected = false;
+  streamClient.setInsecure();
+  // Küçük TLS buffer (MFLN) — kalıcı bağlantı belleği düşük kalsın, transient
+  // çağrılara (telemetri/komut/pid) yer kalsın.
+  streamClient.setBufferSizes(1024, 512);
+  streamClient.setTimeout(4000);
+
+  String host = firebaseHost();
+  String path = String("/manualControls/" CAR_ID ".json");
+
+  // Firebase streaming 307/301/302 ile bölgesel sunucuya yönlendirebilir → 1 kez izle
+  for (int attempt = 0; attempt < 2; attempt++) {
+    if (!streamClient.connect(host.c_str(), 443)) {
+      Serial1.println(F("[STREAM] connect FAIL"));
+      return;
+    }
+
+    streamClient.print(String("GET ") + path + " HTTP/1.1\r\n");
+    streamClient.print(String("Host: ") + host + "\r\n");
+    streamClient.print(F("Accept: text/event-stream\r\n"));
+    streamClient.print(F("Connection: keep-alive\r\n\r\n"));
+
+    String status = streamClient.readStringUntil('\n');
+    String location = "";
+    unsigned long t = millis();
+    while (streamClient.connected() && millis() - t < 4000) {
+      String line = streamClient.readStringUntil('\n');
+      if (line.length() <= 1) break;             // boş satır = başlık sonu
+      String low = line; low.toLowerCase();
+      if (low.startsWith("location:")) { location = line.substring(9); location.trim(); }
+    }
+
+    if (status.indexOf("200") >= 0) {
+      streamConnected  = true;
+      lastStreamByteMs = millis();
+      lastManualOkMs   = millis();
+      streamLine = ""; streamEvent = "";
+      Serial1.println(F("[STREAM] connected"));
+      return;
+    }
+
+    bool redirect = (status.indexOf("307") >= 0 || status.indexOf("301") >= 0 ||
+                     status.indexOf("302") >= 0);
+    if (redirect && location.length() > 0) {
+      location.replace("https://", ""); location.replace("http://", "");
+      int sl = location.indexOf('/');
+      if (sl >= 0) { host = location.substring(0, sl); path = location.substring(sl); }
+      else         { host = location; }
+      streamClient.stop();
+      Serial1.print(F("[STREAM] redirect -> ")); Serial1.println(host);
+      continue;
+    }
+
+    Serial1.print(F("[STREAM] HTTP: ")); Serial1.println(status);
+    streamClient.stop();
+    return;
+  }
+  Serial1.println(F("[STREAM] redirect basarisiz"));
+  streamClient.stop();
+}
+
+// {"path":"/...","data":{...}} → manualEnabled/manualCmd/manualSpeed uygula.
+// writeManualControl her zaman tüm seti update eder; eksik alanlar mevcut değerde kalır.
+void applyStreamData(const String& json) {
+  bool   en  = jsonBool(json, "enabled", manualEnabled);
+  String cmd = jsonStr(json, "command", String(manualCmd));
+  int    spd = jsonInt(json, "speed", manualSpeed);
+
+  manualEnabled = en;
+  if (!en) {
+    strncpy(manualCmd, "STOP", sizeof(manualCmd));
+    manualSpeed = 0;
+  } else {
+    strncpy(manualCmd, cmd.c_str(), sizeof(manualCmd) - 1);
+    manualCmd[sizeof(manualCmd) - 1] = '\0';
+    manualSpeed = constrain(spd, 0, 255);
+  }
+
+  Serial1.print(F("[STREAM] en=")); Serial1.print(en);
+  Serial1.print(F(" cmd="));        Serial1.print(manualCmd);
+  Serial1.print(F(" spd="));        Serial1.println(manualSpeed);
+}
+
+void handleStreamLine(const String& line) {
+  if (line.startsWith("event:")) {
+    streamEvent = line.substring(6); streamEvent.trim();
+  } else if (line.startsWith("data:")) {
+    String data = line.substring(5); data.trim();
+    if (streamEvent == "put" || streamEvent == "patch") {
+      if (data.indexOf("\"data\":null") >= 0) {
+        // manualControls silindi → güvenli dur
+        manualEnabled = false;
+        strncpy(manualCmd, "STOP", sizeof(manualCmd));
+        manualSpeed = 0;
+      } else {
+        applyStreamData(data);
+      }
+    }
+    // keep-alive / auth_revoked / cancel → yoksay
+  }
+}
+
+void processManualStream() {
+  if (!wifiOk) { streamClient.stop(); streamConnected = false; return; }
+
+  if (streamConnected && streamClient.connected()) {
+    lastManualOkMs = millis();
+    while (streamClient.available()) {
+      char c = (char)streamClient.read();
+      lastStreamByteMs = millis();
+      if (c == '\n') {
+        if (streamLine.length() > 0) handleStreamLine(streamLine);
+        streamLine = "";
+      } else if (c != '\r') {
+        if (streamLine.length() < 500) streamLine += c;
+      }
+    }
+    // Uzun süre hiç bayt yok (keep-alive bile) → bağlantı ölmüş, yeniden kur
+    if (millis() - lastStreamByteMs > STREAM_STALE_MS) {
+      Serial1.println(F("[STREAM] stale -> reconnect"));
+      streamClient.stop();
+      streamConnected = false;
+    }
+  } else {
+    streamConnected = false;
+    if (millis() - lastStreamAttemptMs > STREAM_RECONNECT_MS) {
+      lastStreamAttemptMs = millis();
+      connectManualStream();
+    }
+  }
+}
+
+// FALLBACK: stream bağlanamazsa (ör. TLS/MFLN sorunu) polling ile manuel kontrol
+// çalışmaya devam etsin (~1sn gecikme). Stream bağlıyken bu çağrılmaz.
+#define MANUAL_FALLBACK_POLL_MS 500
+void readManualControlFallback() {
   if (!wifiOk) return;
-  if (millis() - lastManualPollMs < MANUAL_POLL_MS) return;
+  if (millis() - lastManualPollMs < MANUAL_FALLBACK_POLL_MS) return;
   lastManualPollMs = millis();
 
   String body = httpGet(manualControlUrl());
-  if (body.length() == 0) {                  // okuma başarısız → bağlantı sağlığı düşür
-    manualPollFails++;
-    return;
-  }
-  manualPollFails = 0;                        // başarılı okuma → bağlantı sağlam
+  if (body.length() == 0) return;            // okuma başarısız → bağlantı sağlığı düşmez
+  lastManualOkMs = millis();                 // başarılı okuma → bağlantı sağlam
 
-  bool  en      = jsonBool(body, "enabled");
-  String cmd    = jsonStr(body, "command", "STOP");
-  int   spd     = jsonInt(body, "speed", 0);
-  String ver    = jsonStr(body, "commandVersion", "0");
+  String ver = jsonStr(body, "commandVersion", "0");
+  if (ver == lastManualVersion) return;      // değişiklik yok
+  lastManualVersion = ver;
 
-  // LATCH: yeni komut sürümü geldiğinde bir kez uygula, STOP'a kadar sürer.
-  if (ver != lastManualVersion) {
-    lastManualVersion = ver;
+  bool en = jsonBool(body, "enabled");
+  manualEnabled = en;
+  if (!en) { strncpy(manualCmd, "STOP", sizeof(manualCmd)); manualSpeed = 0; }
+  else {
+    String cmd = jsonStr(body, "command", "STOP");
     strncpy(manualCmd, cmd.c_str(), sizeof(manualCmd) - 1);
-    manualSpeed    = constrain(spd, 0, 255);
-    manualEnabled  = en;
-
-    Serial1.print(F("[MANUAL] en="));
-    Serial1.print(en);
-    Serial1.print(F(" cmd="));
-    Serial1.print(cmd);
-    Serial1.print(F(" spd="));
-    Serial1.println(spd);
+    manualCmd[sizeof(manualCmd) - 1] = '\0';
+    manualSpeed = constrain(jsonInt(body, "speed", 0), 0, 255);
   }
-
-  // Manuel kapatıldıysa hemen STOP
-  if (!en) {
-    manualEnabled = false;
-    strncpy(manualCmd, "STOP", sizeof(manualCmd));
-    manualSpeed = 0;
-  }
-  // NOT: Sürüm bazlı timeout YOK (latch). Güvenlik staleness ile pushCommandToArduino'da.
+  Serial1.print(F("[MANUAL poll] en=")); Serial1.print(en);
+  Serial1.print(F(" cmd=")); Serial1.println(manualCmd);
 }
 
 // ==================== VEHICLE COMMAND POLLİNG ====================
@@ -333,12 +476,12 @@ void readVehicleCommandIfNeeded() {
 
 // ==================== ARDUINO'YA GÜNCEL MOD/KOMUT GÖNDER ====================
 void pushCommandToArduino() {
-  // GÜVENLİK: SADECE WiFi/bağlantı KOPARSA araca STOP (kullanıcı isteği).
-  // Bu bir "komut vermezsen dur" zamanlayıcısı DEĞİL — WiFi varken ve Firebase
-  // erişilebilirken latch'lenmiş komut sonsuza dek sürer (tıkla, bırak, devam eder).
-  //   wifiOk           = WiFi.status() == WL_CONNECTED (fiziksel WiFi kopması)
-  //   manualPollFails  = üst üste Firebase okuma hatası (bağlantı fiilen yok)
-  bool connectionLost = !wifiOk || manualPollFails >= MANUAL_FAIL_LIMIT;
+  // GÜVENLİK: SADECE WiFi/stream bağlantısı KOPARSA araca STOP (kullanıcı isteği).
+  // Bu bir "komut vermezsen dur" zamanlayıcısı DEĞİL — bağlantı sağlamken
+  // latch'lenmiş komut sonsuza dek sürer (tıkla, bırak, devam eder).
+  //   wifiOk        = WiFi.status() == WL_CONNECTED (fiziksel WiFi kopması)
+  //   lastManualOkMs= stream bağlantısının sağlıklı olduğu son an
+  bool connectionLost = !wifiOk || (millis() - lastManualOkMs > CONN_LOST_MS);
   if (connectionLost) {
     // Latch'i temizle ki bağlantı dönünce araç kendiliğinden harekete geçmesin
     strncpy(manualCmd, "STOP", sizeof(manualCmd));
@@ -567,14 +710,17 @@ void loop() {
   maintainWifi();
   readArduinoIfAvailable();
 
-  // Komutu HER ZAMAN gönder (bloklayan HTTPS çağrılarından ÖNCE) — böylece bir
-  // poll yavaşlasa/takılsa bile Arduino komut akışını kesintisiz alır.
+  // Manuel komutlar STREAM ile gelir (anlık işlenir) — düşük gecikme.
+  processManualStream();
+  if (!streamConnected) readManualControlFallback();   // stream yoksa polling
   pushCommandToArduino();
 
-  readManualControlIfNeeded();
   readVehicleCommandIfNeeded();
   readPidIfNeeded();
-  pushCommandToArduino();      // güncel durumla tekrar
+
+  processManualStream();       // transient poll'lardan sonra stream'i tekrar oku
+  pushCommandToArduino();
+
   uploadSegmentIfPending();
   pushTelemetryIfNeeded();
 
