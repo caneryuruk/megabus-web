@@ -66,11 +66,6 @@ String mlUrl()            { return fbUrl("/mlTrainingData/" CAR_ID); }
 bool  wifiOk            = false;
 unsigned long lastWifiRetry = 0;
 
-// TLS oturumu — aynı Firebase host'una tekrar bağlanırken handshake'i hızlandırır
-// ve bellek baskısını azaltır. Bu olmadan her HTTPS isteği tam handshake yapar
-// (~500ms + ~16KB heap) → ESP boğulur → manuel kontrol kopar.
-BearSSL::Session firebaseTlsSession;
-
 // Manuel poll bağlantı sağlığı: üst üste başarısızlık = bağlantı kopuk
 int   manualPollFails  = 0;
 
@@ -145,7 +140,6 @@ void maintainWifi() {
 String httpGet(const String& url) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
-  client.setSession(&firebaseTlsSession);   // oturum tekrar kullan → hızlı + az bellek
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return "";
@@ -159,7 +153,6 @@ String httpGet(const String& url) {
 int httpPatch(const String& url, const String& json) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
-  client.setSession(&firebaseTlsSession);
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return -1;
@@ -173,7 +166,6 @@ int httpPatch(const String& url, const String& json) {
 int httpPost(const String& url, const String& json) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
-  client.setSession(&firebaseTlsSession);
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return -1;
@@ -574,10 +566,14 @@ void loop() {
   maintainWifi();
   readArduinoIfAvailable();
 
+  // Komutu HER ZAMAN gönder (bloklayan HTTPS çağrılarından ÖNCE) — böylece bir
+  // poll yavaşlasa/takılsa bile Arduino komut akışını kesintisiz alır.
+  pushCommandToArduino();
+
   readManualControlIfNeeded();
   readVehicleCommandIfNeeded();
   readPidIfNeeded();
-  pushCommandToArduino();
+  pushCommandToArduino();      // güncel durumla tekrar
   uploadSegmentIfPending();
   pushTelemetryIfNeeded();
 
