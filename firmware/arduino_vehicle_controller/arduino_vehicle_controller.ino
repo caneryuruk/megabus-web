@@ -303,23 +303,10 @@ void driveForward(int leftCmd, int rightCmd) {
   applyMotorPins(true, rightPWM, true, leftPWM);
 }
 
-// Manuel: yön parametreli. Durağan motoru kırmak için startup boost + min PWM
-// uygular (auto moddaki gibi) — yoksa 100 PWM statik sürtünmeyi yenemez, araç
-// kıpırdamaz.
+// Manuel: yön parametreli, düz PWM (boost yok — kullanıcı isteği).
 void driveManual(bool rightFwd, int rightCmd, bool leftFwd, int leftCmd) {
-  unsigned long now = millis();
-
-  if (leftCmd  > 0 && lastLeftCmd  == 0) leftBoostUntil  = now + STARTUP_BOOST_MS;
-  if (rightCmd > 0 && lastRightCmd == 0) rightBoostUntil = now + STARTUP_BOOST_MS;
-
-  int lActual = applyMinPWM(leftCmd);
-  int rActual = applyMinPWM(rightCmd);
-
-  if (leftCmd  > 0 && now < leftBoostUntil)  lActual = max(lActual, STARTUP_BOOST_PWM);
-  if (rightCmd > 0 && now < rightBoostUntil) rActual = max(rActual, STARTUP_BOOST_PWM);
-
-  leftPWM  = constrain(lActual, 0, 255);
-  rightPWM = constrain(rActual, 0, 255);
+  leftPWM  = constrain(leftCmd,  0, 255);
+  rightPWM = constrain(rightCmd, 0, 255);
   lastLeftCmd  = leftCmd;
   lastRightCmd = rightCmd;
   applyMotorPins(rightFwd, rightPWM, leftFwd, leftPWM);
