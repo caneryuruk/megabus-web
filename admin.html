@@ -871,6 +871,23 @@
     .live-value.occ-green { color: var(--green); }
     .live-value.occ-yellow { color: var(--yellow); }
     .live-value.occ-red { color: var(--red); }
+
+    .card-hint { color: var(--blue); font-size: 13px; font-weight: 700; margin-top: 10px; }
+    .adv-section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin-top: 18px;
+      padding: 4px 14px;
+    }
+    .adv-section > summary {
+      color: var(--yellow);
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 12px 0;
+    }
+    .adv-section[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 12px; }
   </style>
 </head>
 
@@ -911,33 +928,27 @@
       </div>
 
       <section id="dashboardView">
-        <div class="section-title">Connection Status</div>
-        <div id="deviceStatusContainer"></div>
-
-        <div class="section-title">System Control</div>
-        <div id="systemControlContainer"></div>
-
-        <div class="section-title">Vehicle Occupancy</div>
-        <div id="occupancyContainer"></div>
-
-        <div class="section-title">Extra Trip</div>
-        <div id="tripCapacityContainer"></div>
         <div class="trip-alert hidden" id="tripAlert"></div>
-
-        <div class="section-title">PID Settings</div>
-        <div id="pidSettingsContainer"></div>
-
-        <div class="section-title">Route Calibration</div>
-        <div id="routeSummaryContainer"></div>
-
-        <div class="section-title">AI ETA Prediction / ML Training</div>
-        <div id="aiTrainingContainer"></div>
 
         <div class="section-title">Cars</div>
         <div class="card-grid" id="carsGrid"></div>
 
+        <div class="section-title">System</div>
+        <div id="systemControlContainer"></div>
+
         <div class="section-title">Stations</div>
         <div class="card-grid" id="stationsGrid"></div>
+
+        <details class="adv-section">
+          <summary>PID Tuning</summary>
+          <div id="pidSettingsContainer"></div>
+        </details>
+
+        <details class="adv-section">
+          <summary>Route Calibration &amp; AI ETA / ML</summary>
+          <div id="routeSummaryContainer"></div>
+          <div id="aiTrainingContainer"></div>
+        </details>
       </section>
 
       <section id="detailView" class="detail-view hidden">
@@ -2760,26 +2771,13 @@
           <article class="panel-card ${isActive ? "active" : ""}" data-type="car" data-id="${carId}">
             <div class="card-title">
               <span class="card-name">${car.carId || carId}</span>
-              <span class="small-id">${manualActive ? '<span class="badge manual-badge">MANUAL MODE</span>' : carId}</span>
+              <span class="device-pill ${connectionClass}">${connectionLabel}</span>
             </div>
-            <div class="mini-row">Connection: <span class="device-pill ${connectionClass}">${connectionLabel}</span></div>
-            <div class="mini-row">IP: ${valueOrNoData(car.ip)}</div>
-            <div class="mini-row">Status: ${getStatusBadge(car.status)}</div>
-            <div class="mini-row">Manual: ${manualActive ? '<span class="badge manual-badge">ACTIVE</span>' : '<span class="badge unknown">OFF</span>'}</div>
-            <div class="mini-row">Mode: ${valueOrNoData(car.mode)}</div>
-            <div class="mini-row">Position: ${isCarEtaUsable(car) ? '<span class="badge arrived">Trusted</span>' : '<span class="badge stop">Needs Confirm</span>'}</div>
+            ${manualActive ? '<div class="mini-row"><span class="badge manual-badge">MANUAL MODE</span></div>' : ""}
+            <div class="mini-row">Mode: <strong>${valueOrNoData(car.mode)}</strong></div>
             <div class="mini-row">Occupancy: <span class="status-dot ${occupancy.color}"></span> ${occupancy.label}</div>
-            <div class="mini-row">Service: ${boolText(car.serviceActive)} | Calibration: ${boolText(car.calibrationActive)}</div>
-            <div class="mini-row">Action: ${getActionBadge(car.action)}</div>
-            <div class="mini-row">Next Station: ${valueOrNoData(car.nextStation)}</div>
             <div class="mini-row">ETA: ${formatEta(getCarEtaValue(car))}</div>
-            ${recoveryNeeded ? `
-              <div class="system-actions">
-                <button class="recovery-button" type="button" data-recovery-open data-car-id="${carId}">
-                  Return to Auto Mode
-                </button>
-              </div>
-            ` : ""}
+            <div class="card-hint">Click to control &rarr;</div>
           </article>
         `;
       }).join("");
@@ -3000,15 +2998,12 @@
       if (currentView === "dashboard") {
         dashboardView.classList.remove("hidden");
         detailView.classList.add("hidden");
-        renderDeviceStatus();
+        renderCarsGrid();
         renderSystemControl();
-        renderOccupancySummary();
-        renderTripCapacity();
+        renderStationsGrid();
         renderPidSettings();
         renderRouteSummary();
         renderAiTrainingPanel();
-        renderCarsGrid();
-        renderStationsGrid();
       } else {
         dashboardView.classList.add("hidden");
         detailView.classList.remove("hidden");
