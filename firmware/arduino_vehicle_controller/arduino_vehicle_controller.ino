@@ -554,7 +554,9 @@ void updateManualMovement() {
     driveManual(true,  manualSpeed, true,  manualSpeed);   // ikisi ileri
     strcpy(action, "MANUAL_FORWARD");
   } else if (strcmp(manualCmd, "BACKWARD") == 0) {
-    driveManual(false, manualSpeed, false, manualSpeed);   // ikisi geri
+    // Sol motor geri dönmek için ileriden daha fazla güç istiyor → geri için PWM tabanı
+    int bw = max(manualSpeed, 200);
+    driveManual(false, bw, false, bw);                     // ikisi geri (güçlü)
     strcpy(action, "MANUAL_BACKWARD");
   } else if (strcmp(manualCmd, "LEFT") == 0) {
     driveManual(true,  manualSpeed, true,  0);             // sağ ileri, SOL DUR → sola döner
