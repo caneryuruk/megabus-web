@@ -28,9 +28,16 @@ Yön: her iki taraf da yalnızca kendi çıkışını basar; çakışma yok.
 ```
 
 **Kurallar:**
-- ESP her 600 ms'de bir `pushCommandToArduino()` ile gönderir.
+- ESP her loop'ta `pushCommandToArduino()` ile gönderir (sık).
 - Manuel etkin değilse `manEn=0` ve `cmd=STOP` gönderilir.
-- Manuel timeout (2 sn sessizlik) → ESP otomatik STOP gönderir.
+- Güvenlik: yalnızca bağlantı koparsa (WiFi düşer veya stream >2sn sağlıksız) STOP.
+  "Komut vermezsen dur" zamanlayıcısı YOK — latch'lenmiş komut bağlantı varken sürer.
+
+### Manuel komut kaynağı: Firebase Streaming (SSE)
+Manuel komutlar artık polling yerine **kalıcı SSE bağlantısı** ile gelir:
+ESP, `manualControls/{carId}.json`'a `Accept: text/event-stream` ile bağlanır,
+Firebase değişiklikleri `event: put/patch` olarak **anında push** eder → gecikme
+~200-400ms. Stream bağlanamazsa polling fallback (~1sn) devreye girer.
 
 ---
 
