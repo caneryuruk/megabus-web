@@ -2535,7 +2535,7 @@
       const rawSpeed = Number(input?.value);
 
       if (!Number.isFinite(rawSpeed) || rawSpeed <= 0) {
-        return 100;   // varsayılan / geçersiz → 100 (araç hareket etsin)
+        return 140;   // varsayılan / geçersiz → 140 (100 motorları döndürmeye yetmiyor)
       }
 
       return Math.max(0, Math.min(255, Math.round(rawSpeed)));
@@ -2829,7 +2829,7 @@
 
       // Hız varsayılanı 100 (0/eksik → 100, böylece araç hareket eder)
       const storedSpeed = Number(manual.speed);
-      const manualSpeed = (Number.isFinite(storedSpeed) && storedSpeed > 0) ? storedSpeed : 100;
+      const manualSpeed = (Number.isFinite(storedSpeed) && storedSpeed > 0) ? storedSpeed : 140;
 
       // Yapıyı (butonlar + hız kaydırıcı) yalnızca araç ya da manuel-durumu
       // değişince yeniden kur. Böylece saniyelik telemetri kaydırıcıyı SIFIRLAMAZ.

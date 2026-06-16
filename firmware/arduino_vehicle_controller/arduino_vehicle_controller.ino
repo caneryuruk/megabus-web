@@ -547,18 +547,20 @@ long getEncR() { noInterrupts(); long v = encTicksR; interrupts(); return v; }
 long getEncL() { noInterrupts(); long v = encTicksL; interrupts(); return v; }
 
 // ==================== MANUEL HAREKETİ ====================
+// driveManual(rightFwd, rightCmd, leftFwd, leftCmd)
+// Nazik direksiyon: dönerken iç tekerlek DURUR (geri gitmez), dış tekerlek sürer.
 void updateManualMovement() {
   if (strcmp(manualCmd, "FORWARD") == 0) {
-    driveManual(true,  manualSpeed, true,  manualSpeed);
+    driveManual(true,  manualSpeed, true,  manualSpeed);   // ikisi ileri
     strcpy(action, "MANUAL_FORWARD");
   } else if (strcmp(manualCmd, "BACKWARD") == 0) {
-    driveManual(false, manualSpeed, false, manualSpeed);
+    driveManual(false, manualSpeed, false, manualSpeed);   // ikisi geri
     strcpy(action, "MANUAL_BACKWARD");
   } else if (strcmp(manualCmd, "LEFT") == 0) {
-    driveManual(true,  manualSpeed, false, manualSpeed);
+    driveManual(true,  manualSpeed, true,  0);             // sağ ileri, SOL DUR → sola döner
     strcpy(action, "MANUAL_LEFT");
   } else if (strcmp(manualCmd, "RIGHT") == 0) {
-    driveManual(false, manualSpeed, true,  manualSpeed);
+    driveManual(true,  0,           true,  manualSpeed);   // SAĞ DUR, sol ileri → sağa döner
     strcpy(action, "MANUAL_RIGHT");
   } else {
     stopMotors();
