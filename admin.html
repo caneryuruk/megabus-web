@@ -789,6 +789,88 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* ===== Temiz araç detay / manuel kontrol tasarımı ===== */
+    .detail-header {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .detail-header h2 { color: var(--blue); font-size: 28px; margin: 0; }
+    .detail-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn-amber { background: #b45309; }
+    .btn-amber:hover { background: #92400e; }
+    .btn-blue { background: #2563eb; }
+    .btn-red { background: #b91c1c; }
+    .btn-red:hover { background: #991b1b; }
+
+    .mc-panel {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      margin-bottom: 18px;
+      padding: 20px;
+    }
+    .mc-status { color: var(--muted); font-size: 15px; margin-bottom: 16px; }
+    .mc-status.on { color: var(--green); }
+    .mc-status strong { font-size: 18px; }
+    .mc-hint { color: var(--muted); font-weight: 400; }
+
+    .mc-speed { align-items: center; display: flex; gap: 14px; margin-bottom: 20px; }
+    .mc-speed label { color: #cbd5e1; font-weight: 700; margin: 0; }
+    .mc-speed input[type="range"] { flex: 1; height: 10px; cursor: pointer; }
+    .mc-speed-val {
+      color: var(--blue);
+      font-size: 22px;
+      font-weight: 800;
+      min-width: 46px;
+      text-align: right;
+    }
+
+    .mc-dpad {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, 88px);
+      grid-template-rows: repeat(3, 66px);
+      justify-content: center;
+    }
+    .mc-btn {
+      background: #334155;
+      border-radius: 12px;
+      font-size: 24px;
+      font-weight: 800;
+    }
+    .mc-btn:hover:not(:disabled) { background: #475569; }
+    .mc-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+    .mc-btn.up { grid-column: 2; grid-row: 1; }
+    .mc-btn.left { grid-column: 1; grid-row: 2; }
+    .mc-btn.stop { background: #b91c1c; font-size: 16px; grid-column: 2; grid-row: 2; }
+    .mc-btn.stop:hover:not(:disabled) { background: #991b1b; }
+    .mc-btn.right { grid-column: 3; grid-row: 2; }
+    .mc-btn.down { grid-column: 2; grid-row: 3; }
+    .mc-feedback { color: var(--muted); font-size: 13px; margin-top: 12px; min-height: 16px; text-align: center; }
+
+    .live-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+    .live-item {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .live-label { color: var(--muted); display: block; font-size: 12px; margin-bottom: 4px; }
+    .live-value { color: var(--text); font-size: 17px; font-weight: 700; }
+    .live-value.ok { color: var(--green); }
+    .live-value.bad { color: var(--red); }
+    .live-value.occ-green { color: var(--green); }
+    .live-value.occ-yellow { color: var(--yellow); }
+    .live-value.occ-red { color: var(--red); }
   </style>
 </head>
 
@@ -995,6 +1077,7 @@
     let selectedEtaCarId = "car1";
     let manualCommandVersionByCar = {};
     let lastPidSignature = null;
+    let detailStructureKey = null;
     let systemUnsubscribe = null;
     let carsUnsubscribe = null;
     let stationsUnsubscribe = null;
@@ -2438,11 +2521,10 @@
 
     function getManualSpeedValue(carId) {
       const input = document.getElementById(`manualSpeed-${carId}`);
-      const fallbackSpeed = manualControlsData?.[carId]?.speed ?? 180;
-      const rawSpeed = Number(input?.value ?? fallbackSpeed);
+      const rawSpeed = Number(input?.value);
 
-      if (!Number.isFinite(rawSpeed)) {
-        return 180;
+      if (!Number.isFinite(rawSpeed) || rawSpeed <= 0) {
+        return 100;   // varsayılan / geçersiz → 100 (araç hareket etsin)
       }
 
       return Math.max(0, Math.min(255, Math.round(rawSpeed)));
@@ -2744,231 +2826,105 @@
       const car = carsData?.[carId] || {};
       const manual = manualControlsData?.[carId] || {};
       const isManualEnabled = manual.enabled === true;
-      const manualSpeed = manual.speed ?? car.manualSpeed ?? 300;
-      const manualDisabled = isManualEnabled ? "" : "disabled";
-      const recoveryNeeded = shouldShowRecoveryButton(carId);
       const title = formatEntityTitle(carId, car.carId);
-      const occupancy = getOccupancy(car);
-      const connectionClass = getDeviceConnectionClass(car);
-      const connectionLabel = getDeviceConnectionLabel(car);
-      const lastSeenAgeSeconds = getDeviceLastSeenAgeSeconds(car);
-      const lastSeenAgeText = lastSeenAgeSeconds === null ? "No data" : `${lastSeenAgeSeconds} s ago`;
+      const recoveryNeeded = shouldShowRecoveryButton(carId);
 
-      detailContent.innerHTML = `
-        <div class="detail-header">
-          <h2>${title} Detail</h2>
-          <div class="system-actions">
-            <button
-              class="calibration-button"
-              type="button"
-              data-calibration-command
-              data-car-id="${carId}">
-              Distance & Duration Calibration Lap
-            </button>
-            <button
-              class="manual-mode-button ${isManualEnabled ? "manual-enabled" : ""}"
-              type="button"
-              data-manual-toggle
-              data-car-id="${carId}">
-              ${isManualEnabled ? "Disable Manual" : "Switch to Manual Control"}
-            </button>
-            ${recoveryNeeded ? `
-              <button
-                class="recovery-button"
-                type="button"
-                data-recovery-open
-                data-car-id="${carId}">
-                Return to Auto Mode
+      // Hız varsayılanı 100 (0/eksik → 100, böylece araç hareket eder)
+      const storedSpeed = Number(manual.speed);
+      const manualSpeed = (Number.isFinite(storedSpeed) && storedSpeed > 0) ? storedSpeed : 100;
+
+      // Yapıyı (butonlar + hız kaydırıcı) yalnızca araç ya da manuel-durumu
+      // değişince yeniden kur. Böylece saniyelik telemetri kaydırıcıyı SIFIRLAMAZ.
+      const structureKey = `car|${carId}|${isManualEnabled}`;
+      if (detailStructureKey !== structureKey) {
+        detailStructureKey = structureKey;
+        const dis = isManualEnabled ? "" : "disabled";
+        detailContent.innerHTML = `
+          <div class="detail-header">
+            <h2>${title}</h2>
+            <div class="detail-actions">
+              <button class="btn-amber" type="button" data-calibration-command data-car-id="${carId}">Calibration Lap</button>
+              <button class="${isManualEnabled ? "btn-red" : "btn-blue"}" type="button" data-manual-toggle data-car-id="${carId}">
+                ${isManualEnabled ? "Disable Manual" : "Switch to Manual"}
               </button>
-            ` : ""}
-          </div>
-        </div>
-
-        <div class="sub-title">Admin Manual Control</div>
-        <div class="manual-panel">
-          <div class="manual-warning">
-            Admin manual control is the primary driving channel. Click a direction once and the vehicle keeps moving that way until you click Stop. Manual mode stays ON until you press "Disable Manual". The vehicle stops automatically if the Wi-Fi/Firebase connection drops.
-          </div>
-          <div class="telemetry-grid">
-            ${fieldBox("Manual Mode Status", isManualEnabled ? '<span class="badge manual-badge">Active</span>' : '<span class="badge unknown">Off</span>')}
-            ${fieldBox("Last Command", valueOrNoData(manual.command))}
-            ${fieldBox("Last Updated By", valueOrNoData(manual.updatedBy))}
+              ${recoveryNeeded ? `<button class="btn-blue" type="button" data-recovery-open data-car-id="${carId}">Return to Auto</button>` : ""}
+            </div>
           </div>
 
-          <div class="manual-speed-row">
-            <label for="manualSpeed-${carId}">Manual Speed PWM (0-255)</label>
-            <input id="manualSpeed-${carId}" type="number" min="0" max="255" value="${manualSpeed}" />
+          <div class="mc-panel">
+            <div class="mc-status ${isManualEnabled ? "on" : ""}">
+              Manual mode: <strong>${isManualEnabled ? "ON" : "OFF"}</strong>
+              ${isManualEnabled ? "" : `<span class="mc-hint">— press "Switch to Manual" to drive</span>`}
+            </div>
+
+            <div class="mc-speed">
+              <label>Speed</label>
+              <input id="manualSpeed-${carId}" type="range" min="0" max="255" value="${manualSpeed}"
+                     oninput="document.getElementById('manualSpeedVal-${carId}').textContent=this.value" ${dis}>
+              <span class="mc-speed-val" id="manualSpeedVal-${carId}">${manualSpeed}</span>
+            </div>
+
+            <div class="mc-dpad">
+              <button class="mc-btn up"    type="button" data-manual-command="FORWARD"  data-car-id="${carId}" ${dis}>&#9650;</button>
+              <button class="mc-btn left"  type="button" data-manual-command="LEFT"     data-car-id="${carId}" ${dis}>&#9664;</button>
+              <button class="mc-btn stop"  type="button" data-manual-command="STOP"     data-car-id="${carId}" ${dis}>STOP</button>
+              <button class="mc-btn right" type="button" data-manual-command="RIGHT"    data-car-id="${carId}" ${dis}>&#9654;</button>
+              <button class="mc-btn down"  type="button" data-manual-command="BACKWARD" data-car-id="${carId}" ${dis}>&#9660;</button>
+            </div>
+            <div class="mc-feedback" id="manualFeedback-${carId}"></div>
           </div>
 
-          <div class="manual-controls">
-            <button class="forward" type="button" data-manual-command="FORWARD" data-car-id="${carId}" ${manualDisabled}>Forward</button>
-            <button type="button" data-manual-command="LEFT" data-car-id="${carId}" ${manualDisabled}>Left</button>
-            <button type="button" data-manual-command="STOP" data-car-id="${carId}" ${manualDisabled}>Stop</button>
-            <button type="button" data-manual-command="RIGHT" data-car-id="${carId}" ${manualDisabled}>Right</button>
-            <button class="backward" type="button" data-manual-command="BACKWARD" data-car-id="${carId}" ${manualDisabled}>Backward</button>
+          <div class="live-grid">
+            <div class="live-item"><span class="live-label">Connection</span><span class="live-value" id="d-conn">-</span></div>
+            <div class="live-item"><span class="live-label">Mode</span><span class="live-value" id="d-mode">-</span></div>
+            <div class="live-item"><span class="live-label">Action</span><span class="live-value" id="d-action">-</span></div>
+            <div class="live-item"><span class="live-label">Distance</span><span class="live-value" id="d-dist">-</span></div>
+            <div class="live-item"><span class="live-label">Line</span><span class="live-value" id="d-line">-</span></div>
+            <div class="live-item"><span class="live-label">Occupancy</span><span class="live-value" id="d-occ">-</span></div>
+            <div class="live-item"><span class="live-label">ETA</span><span class="live-value" id="d-eta">-</span></div>
+            <div class="live-item"><span class="live-label">Position</span><span class="live-value" id="d-pos">-</span></div>
           </div>
-          <div class="manual-feedback" id="manualFeedback-${carId}"></div>
-        </div>
+        `;
+      }
 
-        <div class="sub-title">General Info</div>
-        <div class="telemetry-grid">
-          ${fieldBox("Car ID", valueOrNoData(car.carId || carId))}
-          ${fieldBox("Connection", `<span class="device-pill ${connectionClass}">${connectionLabel}</span>`)}
-          ${fieldBox("online", boolText(car.online))}
-          ${fieldBox("lastSeen", formatTimestamp(car.lastSeen))}
-          ${fieldBox("Last seen elapsed", lastSeenAgeText)}
-          ${fieldBox("wifiConnected", boolText(car.wifiConnected))}
-          ${fieldBox("firebaseConnected", boolText(car.firebaseConnected))}
-          ${fieldBox("ip", valueOrNoData(car.ip))}
-          ${fieldBox("Vehicle Mode", valueOrNoData(car.mode))}
-          ${fieldBox("Status", getStatusBadge(car.status))}
-          ${fieldBox("active", boolText(car.active))}
-          ${fieldBox("calibrationActive", boolText(car.calibrationActive))}
-          ${fieldBox("serviceActive", boolText(car.serviceActive))}
-          ${fieldBox("Direction", valueOrNoData(car.direction))}
-          ${fieldBox("Next Station", valueOrNoData(car.nextStation))}
-          ${fieldBox("ETA", formatEta(getCarEtaValue(car)))}
-          ${fieldBox("Arrived", boolText(car.arrived))}
-          ${fieldBox("Action", valueOrNoData(car.action))}
-        </div>
+      updateCarDetailLive(carId);
+    }
 
-        <div class="sub-title">Occupancy</div>
-        <div class="telemetry-grid">
-          ${fieldBox("Status", `<div class="occupancy-row"><span>${occupancy.label}</span><span class="status-dot ${occupancy.color}"></span></div>`)}
-          ${fieldBox("fsr1Raw", valueOrNoData(occupancy.fsr1Raw))}
-          ${fieldBox("fsr2Raw", valueOrNoData(occupancy.fsr2Raw))}
-          ${fieldBox("occupiedSeatCount", valueOrNoData(occupancy.occupiedSeatCount))}
-          ${fieldBox("fsr1Occupied", boolText(car.occupancy?.fsr1Occupied))}
-          ${fieldBox("fsr2Occupied", boolText(car.occupancy?.fsr2Occupied))}
-          ${fieldBox("fsrThreshold", valueOrNoData(car.occupancy?.fsrThreshold))}
-          ${fieldBox("adsReady", boolText(car.occupancy?.adsReady))}
-        </div>
+    function setLiveText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
 
-        <div class="sub-title">Trip / Route Status</div>
-        <div class="telemetry-grid">
-          ${fieldBox("positionKnown", boolText(car.positionKnown))}
-          ${fieldBox("etaValid", boolText(car.etaValid))}
-          ${fieldBox("needsPositionConfirm", boolText(car.needsPositionConfirm))}
-          ${fieldBox("currentStop", valueOrNoData(car.currentStop))}
-          ${fieldBox("nextStop", valueOrNoData(car.nextStop))}
-          ${fieldBox("expectedNextStop", valueOrNoData(car.expectedNextStop))}
-          ${fieldBox("currentStopIndex", valueOrNoData(car.currentStopIndex))}
-          ${fieldBox("nextStopIndex", valueOrNoData(car.nextStopIndex))}
-          ${fieldBox("serviceStopCount", valueOrNoData(car.serviceStopCount))}
-          ${fieldBox("hallRaw", valueOrNoData(car.hallRaw))}
-          ${fieldBox("hallDetected", boolText(car.hallDetected))}
-          ${fieldBox("lastHallTime", valueOrNoData(car.lastHallTime))}
-          ${fieldBox("encoderDistance", valueOrNoData(car.encoderDistance, " cm"))}
-          ${fieldBox("currentSegmentDistance", valueOrNoData(car.currentSegmentDistance, " cm"))}
-          ${fieldBox("currentSegmentDuration", formatDurationMs(car.currentSegmentDuration))}
-          ${fieldBox("etaToNextStop", formatEta(car.etaToNextStop))}
-          ${fieldBox("calibrationStarted", boolText(car.calibrationStarted))}
-          ${fieldBox("calibrationCompleted", boolText(car.calibrationCompleted))}
-          ${fieldBox("calibrationHallCount", valueOrNoData(car.calibrationHallCount))}
-          ${fieldBox("routeTotalDistance", valueOrNoData(car.routeTotalDistance, " cm"))}
-          ${fieldBox("routeTotalDuration", formatDurationMs(car.routeTotalDuration))}
-          ${fieldBox("averageSegmentDuration", formatDurationMs(car.averageSegmentDuration))}
-        </div>
+    function updateCarDetailLive(carId) {
+      const car = carsData?.[carId] || {};
+      const occupancy = getOccupancy(car);
+      const online = isDeviceOnline(car);
+      const eta = getCarEtaValue(car);
 
-        <div class="sub-title">Route Calibration Detay</div>
-        <div class="telemetry-grid">
-          ${fieldBox("route.routeCalibrated", boolText(routeData?.routeCalibrated))}
-          ${fieldBox("route.measuredBy", valueOrNoData(routeData?.measuredBy))}
-          ${fieldBox("route.totalDuration", formatDurationMs(routeData?.totalDuration))}
-          ${fieldBox("route.averageSegmentDuration", formatDurationMs(routeData?.averageSegmentDuration))}
-        </div>
+      setLiveText("d-mode", valueOrNoData(car.mode));
+      setLiveText("d-action", valueOrNoData(car.action));
+      setLiveText("d-dist", (car.distanceCm === undefined || car.distanceCm === null)
+        ? "-" : `${Number(car.distanceCm).toFixed(0)} cm`);
+      setLiveText("d-line", valueOrNoData(car.lineCase));
+      setLiveText("d-occ", occupancy.label);
+      setLiveText("d-eta", (eta === null || eta === undefined) ? "-" : `${eta}s`);
 
-        <div class="sub-title">Manual Control Telemetry</div>
-        <div class="telemetry-grid">
-          ${fieldBox("manualControls enabled", boolText(manual.enabled))}
-          ${fieldBox("manualControls command", valueOrNoData(manual.command))}
-          ${fieldBox("manualControls speed", valueOrNoData(manual.speed))}
-          ${fieldBox("manualControls commandVersion", valueOrNoData(manual.commandVersion))}
-          ${fieldBox("manualControls updatedAt", formatTimestamp(manual.updatedAt))}
-          ${fieldBox("manualControls updatedBy", valueOrNoData(manual.updatedBy))}
-          ${fieldBox("car.manualModeEnabled", boolText(car.manualModeEnabled))}
-          ${fieldBox("car.manualCommand", valueOrNoData(car.manualCommand))}
-          ${fieldBox("car.manualSpeed", valueOrNoData(car.manualSpeed))}
-          ${fieldBox("car.lastManualCommandVersion", valueOrNoData(car.lastManualCommandVersion))}
-          ${fieldBox("car.lastManualCommandSeenMs", valueOrNoData(car.lastManualCommandSeenMs))}
-          ${fieldBox("car.manualMillisSinceLastCommand", valueOrNoData(car.manualMillisSinceLastCommand))}
-          ${fieldBox("car.manualStatusText", valueOrNoData(car.manualStatusText))}
-          ${fieldBox("car.manualLastHttpCode", valueOrNoData(car.manualLastHttpCode))}
-        </div>
+      const cs = car.currentStop;
+      const ns = car.nextStop;
+      setLiveText("d-pos", (cs === undefined && ns === undefined)
+        ? "-" : `stop ${cs ?? "-"} → ${ns ?? "-"}  (lap ${car.lapCount ?? 0})`);
 
-        <div class="sub-title">Line Following</div>
-        <div class="telemetry-grid">
-          ${fieldBox("L", valueOrNoData(car.line?.L ?? car.L))}
-          ${fieldBox("M", valueOrNoData(car.line?.M ?? car.M))}
-          ${fieldBox("R", valueOrNoData(car.line?.R ?? car.R))}
-          ${fieldBox("lineFound", boolText(car.lineFound))}
-          ${fieldBox("lineError", valueOrNoData(car.lineError))}
-          ${fieldBox("correction", valueOrNoData(car.correction))}
-          ${fieldBox("lineCase", valueOrNoData(car.lineCase))}
-          ${fieldBox("turnStage", valueOrNoData(car.turnStage))}
-          ${fieldBox("rawPCF", valueOrNoData(car.rawPCF))}
-          ${fieldBox("lastTurnDirection", valueOrNoData(car.lastTurnDirection))}
-        </div>
-
-        <div class="sub-title">PID / PD</div>
-        <div class="telemetry-grid">
-          ${fieldBox("pidError", valueOrNoData(car.pidError))}
-          ${fieldBox("lastPidError", valueOrNoData(car.lastPidError))}
-          ${fieldBox("pidCorrection", valueOrNoData(car.pidCorrection))}
-          ${fieldBox("Kp", valueOrNoData(car.Kp))}
-          ${fieldBox("Ki", valueOrNoData(car.Ki))}
-          ${fieldBox("Kd", valueOrNoData(car.Kd))}
-          ${fieldBox("pid.kp", valueOrNoData(car.pid?.kp))}
-          ${fieldBox("pid.ki", valueOrNoData(car.pid?.ki))}
-          ${fieldBox("pid.kd", valueOrNoData(car.pid?.kd))}
-          ${fieldBox("pid.baseSpeed", valueOrNoData(car.pid?.baseSpeed))}
-          ${fieldBox("pid.maxSpeed", valueOrNoData(car.pid?.maxSpeed))}
-          ${fieldBox("pid.updatedAt", formatTimestamp(car.pid?.updatedAt))}
-        </div>
-
-        <div class="sub-title">HC-SR04 Distance</div>
-        <div class="telemetry-grid">
-          ${fieldBox("distanceCm", formatDistance(car.distanceCm))}
-          ${fieldBox("distanceAction", valueOrNoData(car.distanceAction))}
-          ${fieldBox("distanceStop", boolText(car.distanceStop))}
-        </div>
-
-        <div class="sub-title">Motor / PWM</div>
-        <div class="telemetry-grid">
-          ${fieldBox("baseSpeed", valueOrNoData(car.baseSpeed))}
-          ${fieldBox("targetLeftPWM", valueOrNoData(car.targetLeftPWM))}
-          ${fieldBox("targetRightPWM", valueOrNoData(car.targetRightPWM))}
-          ${fieldBox("leftPWM", valueOrNoData(car.motor?.leftPWM ?? car.leftPWM))}
-          ${fieldBox("rightPWM", valueOrNoData(car.motor?.rightPWM ?? car.rightPWM))}
-          ${fieldBox("leftBoostActive", boolText(car.leftBoostActive))}
-          ${fieldBox("rightBoostActive", boolText(car.rightBoostActive))}
-        </div>
-
-        <div class="sub-title">Hall Sensor / Station Detection</div>
-        <div class="telemetry-grid">
-          ${fieldBox("hallStatus", valueOrNoData(car.hall?.status ?? car.hallStatus))}
-          ${fieldBox("stationDetected", boolText(car.hall?.stationDetected ?? car.stationDetected))}
-        </div>
-
-        <div class="sub-title">FSR / Capacity</div>
-        <div class="telemetry-grid">
-          ${fieldBox("fsr1", valueOrNoData(car.fsr?.fsr1 ?? car.fsr1))}
-          ${fieldBox("fsr2", valueOrNoData(car.fsr?.fsr2 ?? car.fsr2))}
-          ${fieldBox("capacity", valueOrNoData(car.capacity, "%"))}
-          ${fieldBox("fsrStatus", valueOrNoData(car.fsr?.status ?? car.fsrStatus))}
-        </div>
-
-        <div class="sub-title">Encoder</div>
-        <div class="telemetry-grid">
-          ${fieldBox("encoderEnabled", boolText(car.encoder?.enabled ?? car.encoderEnabled))}
-          ${fieldBox("leftEncoderDelta", valueOrNoData(car.encoder?.leftDelta ?? car.leftEncoderDelta))}
-          ${fieldBox("rightEncoderDelta", valueOrNoData(car.encoder?.rightDelta ?? car.rightEncoderDelta))}
-          ${fieldBox("encoderTrim", valueOrNoData(car.encoder?.trim ?? car.encoderTrim))}
-        </div>
-      `;
+      const connEl = document.getElementById("d-conn");
+      if (connEl) {
+        connEl.textContent = online ? "Connected" : "Disconnected";
+        connEl.className = "live-value " + (online ? "ok" : "bad");
+      }
+      const occEl = document.getElementById("d-occ");
+      if (occEl) occEl.className = "live-value occ-" + occupancy.color;
     }
 
     function renderStationDetail(stationId) {
+      detailStructureKey = null;   // araç detayına dönünce yapı yeniden kurulsun
       const expected = EXPECTED_STATIONS.find(station => station.id === stationId);
       const station = stationsData?.[stationId] || {};
       const stationName = station.name || expected?.name || stationId;
