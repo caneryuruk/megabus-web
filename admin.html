@@ -1526,6 +1526,54 @@
       await trainEtaModelForCar(selectedEtaCarId);
     }
 
+    // Her tur tamamlandığında (lapCount artınca) o aracın modelini otomatik eğit.
+    let lastLapCountByCar = {};
+    let autoTrainInFlight = {};
+    function maybeAutoTrainOnLap() {
+      EXPECTED_CARS.forEach(carId => {
+        const lap = Number(carsData?.[carId]?.lapCount || 0);
+        const prev = lastLapCountByCar[carId];
+        lastLapCountByCar[carId] = lap;
+        if (prev === undefined || lap <= prev) return;        // yeni tur yok
+        if (autoTrainInFlight[carId] || etaTrainingInProgressByCar[carId]) return;
+        if (getValidEtaTrainingRowsForCar(carId).length < ETA_MIN_TRAINING_SAMPLES) return;
+        autoTrainInFlight[carId] = true;
+        trainEtaModelForCar(carId)
+          .catch(() => {})
+          .finally(() => { autoTrainInFlight[carId] = false; });
+      });
+    }
+
+    // ML'i tamamen sıfırla (metrobüs hattı değişti → yeniden kalibrasyon + eğitim).
+    // Tüm araçların eğitim verisi + modelleri silinir.
+    async function resetAllMl() {
+      const ok = window.confirm(
+        "Reset ALL ML training data and models for every car?\n" +
+        "Use this only when the route has changed. Vehicles must be re-calibrated " +
+        "(at least ~10 laps each) afterwards."
+      );
+      if (!ok) return;
+
+      try {
+        await set(ref(database, "mlTrainingData"), null);
+        await set(ref(database, "aiModels"), null);
+        await update(ref(database, "system"), {
+          activeRouteVersion: 0,
+          routeCalibrated: false
+        });
+        // Tarayıcı içi modelleri temizle
+        Object.values(etaModelsByCar).forEach(m => { try { m.dispose(); } catch (e) {} });
+        etaModelsByCar = {};
+        etaModelNormalizationsByCar = {};
+        etaTrainingStateByCar = {};
+        etaPredictionStateByCar = {};
+        lastLapCountByCar = {};
+        showTripAlert("ML reset. Re-run Calibration Lap on each car (~10 laps).");
+      } catch (error) {
+        connectionStatus.innerText = "ML reset error: " + error.message;
+      }
+    }
+
     function getSelectedCarIdForEtaPrediction() {
       if (currentView === "detail" &&
           selectedType === "car" &&
@@ -2522,8 +2570,9 @@
                 <button class="ai-placeholder-button" type="button" data-ai-predict-now ${predictionDisabled ? "disabled" : ""}>
                   ${predictionState.status === "predicting" ? "Predicting..." : `Predict ${carId} ETA Now`}
                 </button>
+                <button class="btn-red" type="button" data-ml-reset>Reset ML (route changed)</button>
               </div>
-              <div class="ai-note">Each car model uses only its own /mlTrainingData/${carId} samples. Browser models are kept in memory for this demo; retrain after refreshing the page.</div>
+              <div class="ai-note">Each car learns from its own /mlTrainingData/${carId} samples and auto-trains after each completed lap (~10 laps recommended before starting trips). "Reset ML" wipes all training data &amp; models for every car — use it when the metrobus route changes.</div>
             </div>
           </div>
         </div>
@@ -2994,6 +3043,7 @@
     function renderAll() {
       maybeStartStagedVehicles();
       syncVirtualTripState();
+      maybeAutoTrainOnLap();
 
       if (currentView === "dashboard") {
         dashboardView.classList.remove("hidden");
@@ -3236,6 +3286,12 @@
       const aiPredictButton = event.target.closest("[data-ai-predict-now]");
       if (aiPredictButton) {
         predictEtaNow();
+        return;
+      }
+
+      const mlResetButton = event.target.closest("[data-ml-reset]");
+      if (mlResetButton) {
+        resetAllMl();
         return;
       }
 

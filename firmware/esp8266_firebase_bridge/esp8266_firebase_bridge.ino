@@ -109,12 +109,14 @@ struct Telemetry {
   int   etaSec          = 0;
   int   segment         = 0;
   int   lapCount        = 0;
+  unsigned long lapDurationMs = 0;
 } tele;
 
 unsigned long lastTelemetryPushMs = 0;
+String lastNextStopSent = "";   // >N dedup (expectedNextStop)
 
-// Arduino'dan gelen satır buffer'ı (genişletilmiş telemetri ~117 karakter olabilir)
-char  arBuf[140];
+// Arduino'dan gelen satır buffer'ı (genişletilmiş telemetri ~125 karakter olabilir)
+char  arBuf[160];
 uint16_t arIdx = 0;
 
 // ==================== Wi-Fi ====================
@@ -355,6 +357,14 @@ void readVehicleCommandIfNeeded() {
     Serial1.print(F(" cmd="));
     Serial1.println(cmd);
   }
+
+  // expectedNextStop değişince Arduino'ya >N ile bildir (manuel sonrası resync için)
+  int ns = jsonInt(body, "expectedNextStop", 0);
+  if (String(ns) != lastNextStopSent) {
+    lastNextStopSent = String(ns);
+    Serial.print(F(">N,"));
+    Serial.println(ns);
+  }
 }
 
 // ==================== ARDUINO'YA GÜNCEL MOD/KOMUT GÖNDER ====================
@@ -411,6 +421,7 @@ void parseTelemetry(char* line) {
   tok = strtok(NULL, ","); if (!tok) return; tele.etaSec        = atoi(tok);
   tok = strtok(NULL, ","); if (!tok) return; tele.segment       = atoi(tok);
   tok = strtok(NULL, ","); if (!tok) return; tele.lapCount      = atoi(tok);
+  tok = strtok(NULL, ","); if (!tok) return; tele.lapDurationMs = atol(tok);
 }
 
 // Segment raporu: >S,idx,distCm,durMs,avgPwm,lineLost,occLevel,distActLevel,lap
@@ -506,6 +517,7 @@ void pushTelemetryIfNeeded() {
   json += F("\"etaToNextStop\":");      json += tele.etaSec;      json += ',';
   json += F("\"segment\":");            json += tele.segment;     json += ',';
   json += F("\"lapCount\":");           json += tele.lapCount;    json += ',';
+  json += F("\"lapDurationSec\":");     json += (tele.lapDurationMs / 1000.0); json += ',';
 
   // occupancy nesnesi (mevcut şemayı koru)
   json += F("\"occupancy\":{");

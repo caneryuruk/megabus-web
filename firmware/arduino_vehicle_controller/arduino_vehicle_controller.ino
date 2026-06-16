@@ -182,12 +182,13 @@ int   lapCount         = 0;       // tamamlanan tam tur sayısı
 unsigned long segStartMs    = 0;  // segment başlangıç zamanı
 long  segStartEncSum        = 0;  // segment başında encoder toplamı (L+R)
 
-// Manuel duraklatma telafisi (manuel modda geçen süre/mesafe sayılmaz)
-bool  measPaused            = false;
-unsigned long pauseStartMs  = 0;
-long  pauseStartEncSum      = 0;
-unsigned long segPausedMs   = 0;  // bu segmentte manuelde geçen toplam süre
-long  segManualTicks        = 0;  // bu segmentte manuelde dönen encoder tik
+unsigned long lapStartMs      = 0;  // turun başladığı an
+unsigned long lastLapDurationMs = 0;// son tamamlanan turun süresi
+
+// Manuel askıya alma: manuelde + manuelden çıkınca ilk Hall'a kadar ölçme/ML yok.
+// O Hall'da yeniden senkronize olup taze ölçmeye başlar (yarım segment atılır).
+bool  measSuspended         = false;
+int   expectedNextStop      = 0;  // ESP'den (>N): manuelden sonraki durak (1-based, 0=bilinmiyor)
 
 // Segment istatistikleri (ML için)
 long  segPwmSum             = 0;
@@ -605,8 +606,6 @@ float ticksToCm(long ticks) {
 void startSegment() {
   segStartMs       = millis();
   segStartEncSum   = encSum();
-  segPausedMs      = 0;
-  segManualTicks   = 0;
   segPwmSum        = 0;
   segPwmSamples    = 0;
   segLineLost      = false;
@@ -615,19 +614,18 @@ void startSegment() {
 void resetMeasurement() {
   measuring      = false;
   positionKnown  = false;
+  measSuspended  = false;
   currentSegment = 0;
   hallCount      = 0;
   lapCount       = 0;
-  measPaused     = false;
   etaSec         = 0;
+  lastLapDurationMs = 0;
 }
 
 // Bir segment tamamlandı: süre + mesafe hesapla, ESP'ye rapor için sakla
 void finalizeSegment() {
   unsigned long dur = millis() - segStartMs;
-  if (dur > segPausedMs) dur -= segPausedMs; else dur = 0;   // manuel süreyi düş
-
-  long ticks = encSum() - segStartEncSum - segManualTicks;   // manuel mesafeyi düş
+  long ticks = encSum() - segStartEncSum;
   if (ticks < 0) ticks = 0;
 
   lastSegIndex      = currentSegment;
@@ -655,11 +653,26 @@ void onMeasurementHall() {
     // İlk durağa ulaşıldı: ölçüm referansı burası
     measuring      = true;
     positionKnown  = true;
+    measSuspended  = false;
     currentSegment = 0;
     currentStop    = 0;
+    lapStartMs     = millis();
     startSegment();
     strcpy(action, "MEAS_START");
     Serial.println(F("[MEAS] İlk durak — ölçüm başladı"));
+    return;
+  }
+
+  if (measSuspended) {
+    // Manuelden sonraki ilk Hall: yeniden senkronize, TAZE başla (yarım segment atılır)
+    measSuspended = false;
+    if (expectedNextStop >= 1 && expectedNextStop <= STOP_COUNT) {
+      currentStop    = expectedNextStop - 1;   // 1-based → 0-based
+      currentSegment = currentStop;
+    }
+    startSegment();
+    strcpy(action, "MEAS_RESYNC");
+    Serial.println(F("[MEAS] Manuel sonrası yeniden senkron"));
     return;
   }
 
@@ -669,11 +682,19 @@ void onMeasurementHall() {
   // Sıradaki segmente geç
   currentSegment = (currentSegment + 1) % STOP_COUNT;
   currentStop    = currentSegment;
-  if (currentSegment == 0) lapCount++;   // tam tur tamamlandı
+  if (currentSegment == 0) {                    // tam tur tamamlandı
+    lastLapDurationMs = millis() - lapStartMs;
+    lapStartMs        = millis();
+    lapCount++;
+    Serial.print(F("[LAP] tur="));     Serial.print(lapCount);
+    Serial.print(F(" süre="));         Serial.print(lastLapDurationMs / 1000.0f, 1);
+    Serial.println(F("s"));
+  }
   startSegment();
 }
 
-// Her döngü çağrılır: manuel modda ölçümü duraklat, çıkınca kaldığı yerden devam
+// Her döngü çağrılır. Manuel moda girince ölçüm ASKIYA alınır; manuelden çıkınca
+// da askıda kalır → ölçme/ML, manuelden sonraki İLK Hall'da yeniden başlar (resync).
 void updateMeasurement() {
   bool inCalib = (strcmp(vehicleMode, "calibration") == 0);
 
@@ -682,32 +703,23 @@ void updateMeasurement() {
     return;
   }
 
-  // Manuel moda girince duraklat
-  if (manualEnabled && !measPaused) {
-    measPaused       = true;
-    pauseStartMs     = millis();
-    pauseStartEncSum = encSum();
-  } else if (!manualEnabled && measPaused) {
-    // Manuelden çıkınca: manuelde geçen süre + dönen tikleri biriktir (düşülecek)
-    segPausedMs    += millis() - pauseStartMs;
-    segManualTicks += encSum() - pauseStartEncSum;
-    measPaused      = false;
-  }
+  // Manuel moda girilirse → askıya al (manuelden sonraki Hall'a kadar askıda kalır)
+  if (manualEnabled) measSuspended = true;
 
-  // Aktif ölçümde (manuel değilken) istatistik biriktir
-  if (measuring && !measPaused && !manualEnabled) {
+  // Aktif ölçümde (askıda değil + manuel değil) istatistik biriktir
+  if (measuring && !measSuspended && !manualEnabled) {
     segPwmSum += (leftPWM + rightPWM) / 2;
     segPwmSamples++;
-    if (strcmp(lineCase, "LOST") == 0) segLineLost = true;
+    if (strcmp(lineCase, "LOST") == 0) segLineLost = true;   // sapma/arama tespiti
   }
 
-  // Basit ETA: sıradaki segmentin son ölçülen süresi (sn).
-  // Öndeki araca yaklaşıp yavaşlama → kalan mesafe daha uzun sürer, ölçeklenir.
-  if (measuring) {
+  // Basit ETA: sıradaki segmentin son ölçülen süresi (sn). Öndeki araca yaklaşıp
+  // yavaşlama → kalan mesafe daha uzun sürer, ölçeklenir. (Web ML bunu rafine eder.)
+  if (measuring && !measSuspended) {
     unsigned long base = segLastDurationMs[currentSegment];
     if (base > 0) {
       float scale = 1.0f;
-      if (distStop)                       scale = 3.0f;   // önde engel: çok yavaş
+      if (distStop)                          scale = 3.0f;   // önde engel: çok yavaş
       else if (baseSpeed <= VERY_SLOW_SPEED) scale = 1.8f;
       else if (baseSpeed <= SLOW_SPEED)      scale = 1.3f;
       etaSec = (int)((base / 1000.0f) * scale);
@@ -805,10 +817,19 @@ void parseEspPid(char* line) {
   Serial.print(F(" max="));     Serial.println(maxSpeed);
 }
 
+// >N,<expectedNextStop>  — manuelden sonra varılacak durak (1-based)
+void parseEspNextStop(char* line) {
+  char* p = line + 3;
+  char* tok = strtok(p, ",");
+  if (!tok) return;
+  expectedNextStop = constrain(atoi(tok), 0, STOP_COUNT);
+}
+
 void dispatchEspLine(char* line) {
   if (line[0] != '>') return;
   if (line[1] == 'C') parseEspCommand(line);
   else if (line[1] == 'P') parseEspPid(line);
+  else if (line[1] == 'N') parseEspNextStop(line);
 }
 
 void readEspIfAvailable() {
@@ -897,7 +918,8 @@ void sendTelemetry() {
   espSerial.print(nextStop);         espSerial.print(',');
   espSerial.print(etaSec);           espSerial.print(',');
   espSerial.print(currentSegment);   espSerial.print(',');
-  espSerial.println(lapCount);
+  espSerial.print(lapCount);         espSerial.print(',');
+  espSerial.println(lastLapDurationMs);
 }
 
 // ==================== DEBUG (Serial USB) ====================
@@ -927,7 +949,8 @@ void printDebugIfNeeded() {
   Serial.print(F(" seg="));             Serial.print(currentSegment);
   Serial.print(F(" hallCnt="));         Serial.print(hallCount);
   Serial.print(F(" lap="));             Serial.print(lapCount);
-  Serial.print(F(" paused="));          Serial.print(measPaused?1:0);
+  Serial.print(F(" susp="));            Serial.print(measSuspended?1:0);
+  Serial.print(F(" lapDur="));          Serial.print(lastLapDurationMs / 1000.0f, 1);
   Serial.print(F(" eta="));             Serial.print(etaSec);
   Serial.println(F("s"));
 
