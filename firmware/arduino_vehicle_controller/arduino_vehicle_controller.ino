@@ -58,23 +58,23 @@
 #define ADS_ADDR   0x48
 
 // ==================== VARSAYILAN AYARLAR ====================
-#define DEFAULT_BASE_SPEED   180    // 0-255 arası (Arduino 8-bit PWM)
+#define DEFAULT_BASE_SPEED   130    // 0-255 arası (Arduino 8-bit PWM)
 #define DEFAULT_MAX_SPEED    255
-#define DEFAULT_KP           35.0f
+#define DEFAULT_KP           30.0f
 #define DEFAULT_KI           0.0f
-#define DEFAULT_KD           20.0f
+#define DEFAULT_KD           24.0f
 #define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
 
 // Motor minimum hareket PWM (bunun altı = motor dönmez)
-#define MIN_MOVE_PWM    100
+#define MIN_MOVE_PWM    80
 // Başlangıç boost (durağan motorları kırmak için kısa darbe)
-#define STARTUP_BOOST_PWM  220
+#define STARTUP_BOOST_PWM  180
 #define STARTUP_BOOST_MS    80
 
 // Dönüş PWM sabitleri (ALL_BLACK ve LOST senaryoları için)
-#define SOFT_TURN_PWM    160
-#define MEDIUM_TURN_PWM  190
-#define HARD_TURN_PWM    220
+#define SOFT_TURN_PWM    120
+#define MEDIUM_TURN_PWM  150
+#define HARD_TURN_PWM    190
 
 // Sideonly (tek yan sensör) evre süreleri
 #define SOFT_STAGE_MS    400
@@ -102,14 +102,14 @@
 // Güvenlik: ESP'den bu kadar süre komut gelmezse (ESP çökmesi/kablo) motoru durdur.
 // (WiFi kesilince ESP zaten STOP gönderir; bu watchdog ESP'nin tamamen susmasına karşı.)
 // 3sn marj: ESP HTTPS ile meşgulken komut göndermesi gecikebilir, yanlış durmasın.
-#define CMD_TIMEOUT_MS        3000
+#define CMD_TIMEOUT_MS        3500
 
 // Mesafe eşikleri
 #define DIST_STOP_CM       8.0f
 #define DIST_VERY_SLOW_CM 18.0f
 #define DIST_SLOW_CM      35.0f
-#define VERY_SLOW_SPEED    130
-#define SLOW_SPEED         150
+#define VERY_SLOW_SPEED    90
+#define SLOW_SPEED         130
 
 // ==================== GLOBAL NESNELER ====================
 SoftwareSerial espSerial(PIN_ESP_RX, PIN_ESP_TX);
@@ -635,7 +635,7 @@ void finalizeSegment() {
 
   segLastDurationMs[currentSegment] = dur;   // basit ETA için sakla
 
-  Serial.print(F("[SEG] idx="));   Serial.print(currentSegment);
+  Serial.print(F("[SEG] idx="));    Serial.print(currentSegment);
   Serial.print(F(" dist="));        Serial.print(lastSegDistanceCm, 1);
   Serial.print(F("cm dur="));       Serial.print(dur / 1000.0f, 1);
   Serial.print(F("s avgPWM="));     Serial.print(lastSegAvgPwm);
@@ -992,15 +992,12 @@ void loop() {
   // Ölçüm durum makinesi her döngü çalışır (manuel duraklatmayı yönetir)
   updateMeasurement();
 
-  // Güvenlik watchdog: ESP'den uzun süredir komut gelmiyorsa (ESP çöktü/koptu) dur.
-  bool commsLost = (lastCmdRecvMs != 0 && millis() - lastCmdRecvMs > CMD_TIMEOUT_MS);
+  // NOT: "komut gelmezse dur" watchdog'u KALDIRILDI (kullanıcı isteği).
+  // Durma yalnızca WiFi koparsa olur: ESP, WiFi kesilince STOP gönderir.
+  // Latch'lenmiş komut, ESP komut göndermeyi anlık geciktirse bile korunur.
 
   // ---- Mod yönlendirme ----
-  if (commsLost) {
-    stopMotors();
-    resetPID();
-    strcpy(action, "COMMS_LOST");
-  } else if (manualEnabled) {
+  if (manualEnabled) {
     // Manuel her zaman önceliklidir (mod ne olursa olsun manualEnabled=1 ise sür).
     updateManualMovement();
   } else if (strcmp(vehicleMode, "calibration") == 0) {

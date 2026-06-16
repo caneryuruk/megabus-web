@@ -41,10 +41,11 @@
 #define PID_POLL_MS         2500    // PID ayarları polling aralığı
 #define HTTP_TIMEOUT_MS     4000    // HTTPS çağrıları için zaman aşımı (takılma önler)
 
-// Güvenlik: manualControls okuması bu kadar süredir başarılı olmuyorsa
-// (WiFi/Firebase kesik) araca STOP gönder. Latch yalnızca bağlantı varken sürer.
-// Marj: ~4 poll denemesi (500ms × 4) — geçici hatalar yanlış STOP tetiklemesin.
-#define MANUAL_STALE_MS     2000
+// Güvenlik: manualControls okuması üst üste bu kadar kez başarısız olursa
+// (WiFi/Firebase kopuk) araca STOP gönder. Bu ZAMAN değil HATA sayısı tabanlı:
+// bağlantı sağlamken poll'lar başarılı olur → sayaç 0 → asla durmaz (latch sürer).
+// 3 hata × 500ms ≈ 1.5sn gerçek kopma → STOP.
+#define MANUAL_FAIL_LIMIT   3
 
 // ==================== URL YARDIMCILARI ====================
 // Stack'e geçici String basarız; tek seferlik HTTP çağrısı için yeterli.
@@ -65,13 +66,20 @@ String mlUrl()            { return fbUrl("/mlTrainingData/" CAR_ID); }
 bool  wifiOk            = false;
 unsigned long lastWifiRetry = 0;
 
+// TLS oturumu — aynı Firebase host'una tekrar bağlanırken handshake'i hızlandırır
+// ve bellek baskısını azaltır. Bu olmadan her HTTPS isteği tam handshake yapar
+// (~500ms + ~16KB heap) → ESP boğulur → manuel kontrol kopar.
+BearSSL::Session firebaseTlsSession;
+
+// Manuel poll bağlantı sağlığı: üst üste başarısızlık = bağlantı kopuk
+int   manualPollFails  = 0;
+
 // Manuel kontrol durumu (latch: komut STOP'a kadar sürer)
 bool  manualEnabled      = false;
 char  manualCmd[12]      = "STOP";
 int   manualSpeed        = 0;
 String lastManualVersion = "";
 unsigned long lastManualPollMs   = 0;
-unsigned long lastManualPollOkMs = 0;  // son BAŞARILI manualControls okuması (staleness güvenliği)
 
 // Araç komutu durumu
 char  vehicleMode[12]    = "idle";
@@ -137,6 +145,7 @@ void maintainWifi() {
 String httpGet(const String& url) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
+  client.setSession(&firebaseTlsSession);   // oturum tekrar kullan → hızlı + az bellek
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return "";
@@ -150,6 +159,7 @@ String httpGet(const String& url) {
 int httpPatch(const String& url, const String& json) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
+  client.setSession(&firebaseTlsSession);
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return -1;
@@ -163,6 +173,7 @@ int httpPatch(const String& url, const String& json) {
 int httpPost(const String& url, const String& json) {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
+  client.setSession(&firebaseTlsSession);
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return -1;
@@ -269,8 +280,11 @@ void readManualControlIfNeeded() {
   lastManualPollMs = millis();
 
   String body = httpGet(manualControlUrl());
-  if (body.length() == 0) return;            // başarısız okuma → staleness güvenliği devreye girer
-  lastManualPollOkMs = millis();             // başarılı okuma → bağlantı canlı
+  if (body.length() == 0) {                  // okuma başarısız → bağlantı sağlığı düşür
+    manualPollFails++;
+    return;
+  }
+  manualPollFails = 0;                        // başarılı okuma → bağlantı sağlam
 
   bool  en      = jsonBool(body, "enabled");
   String cmd    = jsonStr(body, "command", "STOP");
@@ -326,11 +340,13 @@ void readVehicleCommandIfNeeded() {
 
 // ==================== ARDUINO'YA GÜNCEL MOD/KOMUT GÖNDER ====================
 void pushCommandToArduino() {
-  // GÜVENLİK: WiFi kesik veya manualControls okuması bayatladıysa (Firebase erişilemez)
-  // araca STOP gönder. Latch yalnızca bağlantı canlıyken sürer.
-  bool linkStale = (lastManualPollOkMs != 0 &&
-                    millis() - lastManualPollOkMs > MANUAL_STALE_MS);
-  if (!wifiOk || linkStale) {
+  // GÜVENLİK: SADECE WiFi/bağlantı KOPARSA araca STOP (kullanıcı isteği).
+  // Bu bir "komut vermezsen dur" zamanlayıcısı DEĞİL — WiFi varken ve Firebase
+  // erişilebilirken latch'lenmiş komut sonsuza dek sürer (tıkla, bırak, devam eder).
+  //   wifiOk           = WiFi.status() == WL_CONNECTED (fiziksel WiFi kopması)
+  //   manualPollFails  = üst üste Firebase okuma hatası (bağlantı fiilen yok)
+  bool connectionLost = !wifiOk || manualPollFails >= MANUAL_FAIL_LIMIT;
+  if (connectionLost) {
     // Latch'i temizle ki bağlantı dönünce araç kendiliğinden harekete geçmesin
     strncpy(manualCmd, "STOP", sizeof(manualCmd));
     sendToArduino(vehicleMode, manualEnabled, "STOP", 0);
