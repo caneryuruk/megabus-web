@@ -59,8 +59,8 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v2.4-staged-steer"
-#define DEFAULT_BASE_SPEED   135    // 0-255. Hız bir tık artırıldı: yavaşlayan iç teker stall'a düşmesin (kullanıcı isteği).
+#define FW_VERSION "v2.5-speed+10"
+#define DEFAULT_BASE_SPEED   145    // 0-255. Tüm hızlar +10 (kullanıcı isteği). (135→145)
 #define DEFAULT_MAX_SPEED    255
 // 5 dijital sensör KADEMELİ (quantized) bir hata sinyali verir. Bu sinyalde yüksek Kd
 // ZİGZAG'I ARTIRIR: hata 0'a geri dönerken türev ters yönde "tekme" üretip aracı diğer
@@ -75,10 +75,10 @@
 // yapıştırıp durduruyordu (kullanıcı şikayeti). Düşürdük (85) ki iç teker dönüşte
 // YAVAŞLAYABİLSİN ama dönmeye devam etsin. Kalkış takılması STARTUP_BOOST ile çözülüyor
 // (teker zaten yuvarlanırken 85 PWM onu döndürmeye yeter; duran tekeri boost kırar).
-#define MIN_MOVE_PWM    85
+#define MIN_MOVE_PWM    95
 // Başlangıç boost (durağan motorları kırmak için kısa darbe). Floor düştüğü için süreyi
 // 90→120ms uzattık ki 0'dan kalkış garanti olsun.
-#define STARTUP_BOOST_PWM  190
+#define STARTUP_BOOST_PWM  200
 #define STARTUP_BOOST_MS   120
 
 // ---- AYRIK DİREKSİYON ŞEKİLLENDİRME (kullanıcı isteği) ----
@@ -92,14 +92,14 @@
 #define SHARP_OUT_S2      80   // kademe 3 (>1000ms): base+80 → en keskin
 // Yumuşak hızlanma: dönüşten sonra ANİ hız sıçraması zigzag yapar. Taban hız RAMP_START'tan
 // baseSpeed'e, her RAMP_INTERVAL_MS'de RAMP_STEP PWM kademeli yükselir. Keskin dönüşte sıfırlanır.
-#define RAMP_START       110   // dönüşten sonra başlanacak en yavaş (motoru döndüren) hız
+#define RAMP_START       120   // dönüşten sonra başlanacak en yavaş (motoru döndüren) hız
 #define RAMP_STEP          3
 #define RAMP_INTERVAL_MS  20
 
 // Dönüş PWM sabitleri (ALL_BLACK ve LOST senaryoları için)
-#define SOFT_TURN_PWM    120
-#define MEDIUM_TURN_PWM  150
-#define HARD_TURN_PWM    190
+#define SOFT_TURN_PWM    130
+#define MEDIUM_TURN_PWM  160
+#define HARD_TURN_PWM    200
 
 // Sideonly (tek yan sensör) evre süreleri
 #define SOFT_STAGE_MS    400
@@ -133,8 +133,8 @@
 #define DIST_STOP_CM       8.0f
 #define DIST_VERY_SLOW_CM 18.0f
 #define DIST_SLOW_CM      35.0f
-#define VERY_SLOW_SPEED    90
-#define SLOW_SPEED         130
+#define VERY_SLOW_SPEED   100
+#define SLOW_SPEED         140
 
 // ==================== GLOBAL NESNELER ====================
 SoftwareSerial espSerial(PIN_ESP_RX, PIN_ESP_TX);
