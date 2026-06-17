@@ -59,7 +59,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v2.9-turn-tune"
+#define FW_VERSION "v3.0-wide-deadband"
 #define DEFAULT_BASE_SPEED   150    // 0-255. Tüm hızlar +5 daha (kullanıcı isteği). (145→150)
 #define DEFAULT_MAX_SPEED    255
 // 5 dijital sensör KADEMELİ (quantized) bir hata sinyali verir. Bu sinyalde yüksek Kd
@@ -436,13 +436,16 @@ void resetPID() {
 // tamamen kayıp yan sensöre geçince yap. Hata kademeli: 0, ±1 (yan-orta), ±2 (en yan).
 // s[i]=true → o sensör çizgide (siyah). s[2]=merkez, s[0]=en sol, s[4]=en sağ.
 int discretePidError() {
-  // En kenar en yüksek öncelik (keskin dönüş)
-  if (s[0] && !s[4])  return -2;  // en sol → keskin sol
-  if (s[4] && !s[0])  return  2;  // en sağ → keskin sağ
-  // Orta-yakın: MERKEZLE BİRLİKTE olsa bile nazik dönüş yap (kullanıcı isteği)
-  if (s[1] && !s[3])  return -1;  // sol-orta (s2 olsa da) → nazik sol
-  if (s[3] && !s[1])  return  1;  // sağ-orta (s2 olsa da) → nazik sağ
-  // Geriye kalan: sadece merkez, ya da s1&s3 geniş sarma → DÜZ
+  // GENİŞ ÖLÜ BÖLGE: merkez sensör çizgiyi gördüğü SÜRECE DÜZ git. Düz yolda küçük kaymalarda
+  // (s2 hâlâ çizgide) düzeltme YAPMA → "çapraz/zigzag" salınımı biter. Düzeltme yalnızca çizgi
+  // merkezden TAMAMEN çıkınca başlar. (Önceki "merkezle birlikte de dön" salınıma yol açıyordu.)
+  if (s[2])           return 0;   // merkez çizgide → DÜZ
+  if (s[1] && s[3])   return 0;   // çizgi merkezi geniş sarıyor → DÜZ
+  // Merkez çizgiyi KAYBETTİ → çizgi nerede? En kenar öncelik (keskin), sonra yan-orta (nazik).
+  if (s[0])           return -2;  // en sol → keskin sol
+  if (s[4])           return  2;  // en sağ → keskin sağ
+  if (s[1])           return -1;  // sol-orta → nazik sol
+  if (s[3])           return  1;  // sağ-orta → nazik sağ
   return 0;
 }
 
