@@ -2734,6 +2734,15 @@
       };
 
       await set(ref(database, `cars/${carId}/pid`), pid);
+
+      // PID'i manualControls'a da yaz: ESP'nin hızlı keep-alive okuması (applyManualBody)
+      // bunu alıp Arduino'ya >P ile gönderir. Ayrı PID GET'i ESP'de heap-block oluyordu,
+      // bu yüzden panel değerleri araca ulaşmıyordu — bu yol güvenilir kanaldır.
+      await update(ref(database, `manualControls/${carId}`), {
+        kp: pid.kp, ki: pid.ki, kd: pid.kd,
+        baseSpeed: pid.baseSpeed, maxSpeed: pid.maxSpeed
+      });
+
       showTripAlert(`${carId} PID settings saved.`);
     }
 

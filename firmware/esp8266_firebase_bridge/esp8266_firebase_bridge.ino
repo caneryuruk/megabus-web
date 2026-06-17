@@ -119,6 +119,8 @@ struct Telemetry {
 
 unsigned long lastTelemetryPushMs = 0;
 String lastNextStopSent = "";   // >N dedup (expectedNextStop)
+String lastPidSigKA = "";       // >P dedup — keep-alive (manualControls) üzerinden gelen PID
+unsigned long lastPidKaMs = 0;  // keep-alive PID parse hız sınırı (manuel hattını yormamak için)
 
 // Arduino'dan gelen satır buffer'ı (genişletilmiş telemetri ~125 karakter olabilir)
 char  arBuf[160];
@@ -308,6 +310,25 @@ void applyManualBody(const String& body) {
     if (nss != lastNextStopSent) {
       lastNextStopSent = nss;
       Serial.print(F(">N,")); Serial.println(ns);
+    }
+  }
+
+  // PID'i de BURADAN gönder (güvenilir keep-alive). Ayrı PID GET'i heap-block oluyordu →
+  // panelden değiştirilen Kp/Kd araca ULAŞMIYORDU. Web bunları manualControls'a da yazar.
+  // Yalnızca pid alanları varsa ve değiştiyse >P gönder. Manuel hattını/heap'i yormamak için
+  // en fazla saniyede bir parse et (PID değişiminin 1sn'de uygulanması fazlasıyla yeterli).
+  if (body.indexOf("\"kp\"") >= 0 && millis() - lastPidKaMs > 1000) {
+    lastPidKaMs = millis();
+    float kp = jsonFloat(body, "kp", 18.0);
+    float ki = jsonFloat(body, "ki", 0.0);
+    float kd = jsonFloat(body, "kd", 8.0);
+    int base = constrain(jsonInt(body, "baseSpeed", 120), 0, 255);
+    int maxS = constrain(jsonInt(body, "maxSpeed", 255), 0, 255);
+    String sig = String(kp,1)+","+String(ki,1)+","+String(kd,1)+","+String(base)+","+String(maxS);
+    if (sig != lastPidSigKA) {
+      lastPidSigKA = sig;
+      sendPidToArduino(kp, ki, kd, base, maxS);
+      Serial1.print(F("[PID-KA] ")); Serial1.println(sig);
     }
   }
 
