@@ -59,8 +59,8 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v2.2-antizigzag"
-#define DEFAULT_BASE_SPEED   120    // 0-255 arası (Arduino 8-bit PWM). Küçük alanda yavaş = az zigzag.
+#define FW_VERSION "v2.3-discrete-steer"
+#define DEFAULT_BASE_SPEED   115    // 0-255. Genel hız bir tık düşürüldü (120→115): sensöre okuma zamanı + stabilite.
 #define DEFAULT_MAX_SPEED    255
 // 5 dijital sensör KADEMELİ (quantized) bir hata sinyali verir. Bu sinyalde yüksek Kd
 // ZİGZAG'I ARTIRIR: hata 0'a geri dönerken türev ters yönde "tekme" üretip aracı diğer
@@ -71,11 +71,22 @@
 #define DEFAULT_KD           8.0f
 #define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
 
-// Motor minimum hareket PWM (bunun altı = motor dönmez). 80 bazen takılıyordu → 110.
-#define MIN_MOVE_PWM    110
-// Başlangıç boost (durağan motorları kırmak için kısa darbe)
+// Motor minimum hareket PWM. Eskiden 110'du ama bu, NAZİK dönüşte iç tekeri tabana
+// yapıştırıp durduruyordu (kullanıcı şikayeti). Düşürdük (85) ki iç teker dönüşte
+// YAVAŞLAYABİLSİN ama dönmeye devam etsin. Kalkış takılması STARTUP_BOOST ile çözülüyor
+// (teker zaten yuvarlanırken 85 PWM onu döndürmeye yeter; duran tekeri boost kırar).
+#define MIN_MOVE_PWM    85
+// Başlangıç boost (durağan motorları kırmak için kısa darbe). Floor düştüğü için süreyi
+// 90→120ms uzattık ki 0'dan kalkış garanti olsun.
 #define STARTUP_BOOST_PWM  190
-#define STARTUP_BOOST_MS    90
+#define STARTUP_BOOST_MS   120
+
+// ---- AYRIK DİREKSİYON ŞEKİLLENDİRME (kullanıcı isteği) ----
+// Orta-yakın sensör (s1/s3): iç teker YAVAŞLAR (durmaz), dış teker hızlanır → nazik dönüş.
+#define GENTLE_SLOWDOWN   15   // iç teker taban hızdan bu kadar yavaşlar (durmaz, sadece yavaşlar)
+#define GENTLE_BOOST      20   // dış teker taban hızın bu kadar üstüne çıkar
+// En kenar sensör (s0/s4): iç teker DURUR (0), dış teker bu kadar hızlanır → keskin dönüş.
+#define SHARP_BOOST       55
 
 // Dönüş PWM sabitleri (ALL_BLACK ve LOST senaryoları için)
 #define SOFT_TURN_PWM    120
@@ -429,27 +440,31 @@ int discretePidError() {
 }
 
 void movePIDFollow() {
-  // Centroid+EMA yerine eski kanıtlanmış AYRIK mantık: merkez çizgideyse düz, yoksa
-  // yana göre ±1/±2 düzelt. Geniş ölü bölge → düz giderken zigzag YOK.
-  pidError = discretePidError();
+  // AYRIK direksiyon (eski çalışan kodun mantığı + kullanıcı isteği):
+  //  - merkez bölge → DÜZ (her iki teker taban hız)
+  //  - orta-yakın yan (s1/s3) → NAZİK dönüş: iç teker YAVAŞLAR (durmaz), dış hızlanır
+  //  - en kenar (s0/s4)       → KESKİN dönüş: iç teker DURUR (0), dış sürer
+  int e = discretePidError();          // 0, ±1 (yan-orta), ±2 (en yan)
+  if (e < 0) lastTurnDir = -1; else if (e > 0) lastTurnDir = 1;
+  pidError = e;                        // telemetri/debug için
 
-  float derivative = pidError - lastPidError;
-  pidIntegral += pidError;
-  pidIntegral = constrain(pidIntegral, -PID_INTEGRAL_LIMIT, PID_INTEGRAL_LIMIT);
+  int b = baseSpeed;                   // mesafe ile modüle edilen taban hız
+  int lCmd, rCmd;
 
-  float raw = Kp * pidError + Ki * pidIntegral + Kd * derivative;
-  pidCorrection = constrain(raw, -PID_CORRECTION_LIMIT, PID_CORRECTION_LIMIT);
-  lastPidError = pidError;
+  if (e == 0) {                        // DÜZ
+    lCmd = b;                 rCmd = b;
+  } else if (e == -1) {                // sola nazik: SOL(iç) yavaşla, SAĞ(dış) hızlan
+    lCmd = b - GENTLE_SLOWDOWN; rCmd = b + GENTLE_BOOST;
+  } else if (e == 1) {                 // sağa nazik: SAĞ(iç) yavaşla, SOL(dış) hızlan
+    lCmd = b + GENTLE_BOOST;    rCmd = b - GENTLE_SLOWDOWN;
+  } else if (e == -2) {                // sola keskin: SOL DUR, SAĞ sür
+    lCmd = 0;                  rCmd = b + SHARP_BOOST;
+  } else {                             // e == 2 → sağa keskin: SAĞ DUR, SOL sür
+    lCmd = b + SHARP_BOOST;    rCmd = 0;
+  }
 
-  // 3) Dönüşte yavaşla: |hata| büyüdükçe taban hızı düşür. Yavaş araç her düzeltmede
-  //    daha az savrulur → zigzag azalır. Düz kısımda (hata≈0) tam hız.
-  // Alt sınır: TURN_MIN_BASE, ama engel yüzünden baseSpeed zaten daha düşükse onu aşma.
-  int lowLimit = min(baseSpeed, TURN_MIN_BASE);
-  int effBase = baseSpeed - (int)(TURN_SLOWDOWN_PER_ERR * fabs(pidError));
-  if (effBase < lowLimit) effBase = lowLimit;
-
-  int lCmd = constrain((int)(effBase + pidCorrection), 0, maxSpeed);
-  int rCmd = constrain((int)(effBase - pidCorrection), 0, maxSpeed);
+  lCmd = constrain(lCmd, 0, maxSpeed);
+  rCmd = constrain(rCmd, 0, maxSpeed);
   driveForward(lCmd, rCmd);
   strcpy(action, "PID_FOLLOW");
 }
