@@ -140,16 +140,22 @@ void maintainWifi() {
 }
 
 // ==================== HTTP YARDIMCILARI ====================
-// Transient HTTPS bir handshake için ~16KB ister. Kalıcı manuel stream açıkken
-// bellek düşükse bu çağrıları atla → stream çökmesin (manuel kontrol önceliklidir).
-bool heapOkForHttps() { return ESP.getFreeHeap() > 20000; }
+// Kalıcı manuel keep-alive bağlantısı belleği tuttuğu için, transient çağrılar
+// KÜÇÜK buffer kullanır (varsayılan 16KB yerine ~5KB) → yan yana sığsınlar.
+// Bellek yine de düşükse çağrıyı atla → manuel keep-alive çökmesin (önceliklidir).
+bool heapOkForHttps() { return ESP.getFreeHeap() > 11000; }
+
+void smallTls(BearSSL::WiFiClientSecure& c) {
+  c.setInsecure();
+  c.setSession(&firebaseSession);   // oturum resume → hızlı handshake
+  c.setBufferSizes(4096, 512);      // küçük buffer → az bellek (transient için yeter)
+}
 
 // GET → response body döner, hata varsa boş String
 String httpGet(const String& url) {
   if (!heapOkForHttps()) return "";
   BearSSL::WiFiClientSecure client;
-  client.setInsecure();
-  client.setSession(&firebaseSession);   // oturum resume → hızlı handshake
+  smallTls(client);
   HTTPClient https;
   https.setReuse(false);
   https.setTimeout(HTTP_TIMEOUT_MS);
@@ -164,8 +170,7 @@ String httpGet(const String& url) {
 int httpPatch(const String& url, const String& json) {
   if (!heapOkForHttps()) return -1;
   BearSSL::WiFiClientSecure client;
-  client.setInsecure();
-  client.setSession(&firebaseSession);
+  smallTls(client);
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return -1;
@@ -179,8 +184,7 @@ int httpPatch(const String& url, const String& json) {
 int httpPost(const String& url, const String& json) {
   if (!heapOkForHttps()) return -1;
   BearSSL::WiFiClientSecure client;
-  client.setInsecure();
-  client.setSession(&firebaseSession);
+  smallTls(client);
   HTTPClient https;
   https.setTimeout(HTTP_TIMEOUT_MS);
   if (!https.begin(client, url)) return -1;
@@ -284,8 +288,26 @@ void readPidIfNeeded() {
 // Tek kalıcı HTTPS bağlantısı üzerinden manualControls'u poll eder. setReuse(true)
 // sayesinde ilk GET handshake yapar, sonrakiler bağlantıyı yeniden kullanır → ~100-200ms.
 void applyManualBody(const String& body) {
+  // MOD + expectedNextStop'u BU hızlı keep-alive okumasından al. (Web bunları
+  // manualControls'a da yazıyor.) Ayrı "command" GET'i kalıcı keep-alive bağlantısı
+  // belleği yüzünden bloke olabiliyor; bu yüzden mod oradan değil BURADAN geliyor.
+  // Bu, sürümden BAĞIMSIZ her okumada uygulanır — manuel komut parse'ı AŞAĞIDA aynen durur.
+  String m = jsonStr(body, "mode", "");
+  if (m.length() > 0) {
+    strncpy(vehicleMode, m.c_str(), sizeof(vehicleMode) - 1);
+    vehicleMode[sizeof(vehicleMode) - 1] = '\0';
+  }
+  int ns = jsonInt(body, "expectedNextStop", -1);
+  if (ns >= 0) {
+    String nss = String(ns);
+    if (nss != lastNextStopSent) {
+      lastNextStopSent = nss;
+      Serial.print(F(">N,")); Serial.println(ns);
+    }
+  }
+
   String ver = jsonStr(body, "commandVersion", "0");
-  if (ver == lastManualVersion) return;      // değişiklik yok
+  if (ver == lastManualVersion) return;      // manuel komutta değişiklik yok
   lastManualVersion = ver;
 
   bool en = jsonBool(body, "enabled");

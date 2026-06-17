@@ -2652,6 +2652,14 @@
         updatedAt: now,
         updatedBy: auth.currentUser?.email || "unknown"
       });
+
+      // Modu manualControls'a da yaz: ESP bunu HIZLI keep-alive okumasından alır
+      // (ayrı "command" GET'i ESP belleği nedeniyle bloke olabiliyor). Manuel
+      // alanlarına dokunmaz (merge) → manuel kontrol bozulmaz.
+      await update(ref(database, `manualControls/${carId}`), {
+        mode,
+        expectedNextStop: extra.expectedNextStop ?? 0
+      });
     }
 
     async function requestRecoveryMode(carId, expectedNextStop) {
