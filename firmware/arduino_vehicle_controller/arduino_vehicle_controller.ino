@@ -58,13 +58,15 @@
 #define ADS_ADDR   0x48
 
 // ==================== VARSAYILAN AYARLAR ====================
-#define DEFAULT_BASE_SPEED   130    // 0-255 arası (Arduino 8-bit PWM)
+// Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
+#define FW_VERSION "v2.2-antizigzag"
+#define DEFAULT_BASE_SPEED   120    // 0-255 arası (Arduino 8-bit PWM). Küçük alanda yavaş = az zigzag.
 #define DEFAULT_MAX_SPEED    255
 // 5 dijital sensör KADEMELİ (quantized) bir hata sinyali verir. Bu sinyalde yüksek Kd
 // ZİGZAG'I ARTIRIR: hata 0'a geri dönerken türev ters yönde "tekme" üretip aracı diğer
 // tarafa savurur. O yüzden dijital çizgi takipçisinde Kd DÜŞÜK tutulur. Kp ise ölü bölge
 // (deadband) düz kısımları koruduğu için dönüşlere yetecek kadar tutulabilir.
-#define DEFAULT_KP           22.0f
+#define DEFAULT_KP           18.0f
 #define DEFAULT_KI           0.0f
 #define DEFAULT_KD           8.0f
 #define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
@@ -142,6 +144,11 @@ const float PID_CORRECTION_LIMIT = 120.0f;
 // yumuşatma/gecikme, yüksek = daha hızlı tepki/az yumuşatma. 0.6 hafif süzme (kademeli
 // sensör zıplamasını ve türev tekmesini azaltır, gerçek dönüşlerde gecikme ihmal edilebilir).
 const float LINE_FILTER = 0.6f;
+// Dönüşte yavaşlama (speed scheduling): |hata| büyüdükçe taban hızı bu kadar düşürülür.
+// Yavaş araç her düzeltmede daha az yana savrulur → ZIGZAG'IN EN ETKİLİ ÇARESİ. Düz
+// kısımda (hata≈0, ölü bölge) tam hız korunur. TURN_MIN_BASE altına inmez.
+const int TURN_SLOWDOWN_PER_ERR = 14;   // her 1.0 birim hata için PWM düşüşü
+const int TURN_MIN_BASE         = 95;   // dönüşte taban hızın inebileceği alt sınır
 // Merkez ölü bölge: |linePosition| bunun altındayken düzeltme yapma (düz giderken zigzag azalır,
 // durak Hall mıknatısını kaçırma riski düşer). Çok büyütme yoksa çizgiden sapmayı geç fark eder.
 const float PID_DEADBAND = 0.6f;
@@ -425,8 +432,15 @@ void movePIDFollow() {
   pidCorrection = constrain(raw, -PID_CORRECTION_LIMIT, PID_CORRECTION_LIMIT);
   lastPidError = pidError;
 
-  int lCmd = constrain((int)(baseSpeed + pidCorrection), 0, maxSpeed);
-  int rCmd = constrain((int)(baseSpeed - pidCorrection), 0, maxSpeed);
+  // 3) Dönüşte yavaşla: |hata| büyüdükçe taban hızı düşür. Yavaş araç her düzeltmede
+  //    daha az savrulur → zigzag azalır. Düz kısımda (hata≈0) tam hız.
+  // Alt sınır: TURN_MIN_BASE, ama engel yüzünden baseSpeed zaten daha düşükse onu aşma.
+  int lowLimit = min(baseSpeed, TURN_MIN_BASE);
+  int effBase = baseSpeed - (int)(TURN_SLOWDOWN_PER_ERR * fabs(pidError));
+  if (effBase < lowLimit) effBase = lowLimit;
+
+  int lCmd = constrain((int)(effBase + pidCorrection), 0, maxSpeed);
+  int rCmd = constrain((int)(effBase - pidCorrection), 0, maxSpeed);
   driveForward(lCmd, rCmd);
   strcpy(action, "PID_FOLLOW");
 }
@@ -469,8 +483,10 @@ void readDistanceIfNeeded() {
   digitalWrite(PIN_TRIG, HIGH); delayMicroseconds(10);
   digitalWrite(PIN_TRIG, LOW);
 
-  // 12000µs ≈ ~206cm max; engel yokken döngüyü 18ms yerine 12ms bloklar
-  unsigned long dur = pulseIn(PIN_ECHO, HIGH, 12000);
+  // 5000µs ≈ ~85cm max — 8cm dur / 35cm yavaş eşikleri için fazlasıyla yeter. Engel
+  // yokken pulseIn döngüyü en fazla 5ms bloklar (12ms yerine) → kontrol döngüsü daha
+  // akıcı, çizgi takibinde periyodik "kör nokta" azalır → daha az zigzag.
+  unsigned long dur = pulseIn(PIN_ECHO, HIGH, 5000);
   if (dur == 0) { distCm = -1; distStop = false; baseSpeed = configuredBaseSpeed; return; }
 
   distCm = dur / 58.0f;
@@ -959,6 +975,14 @@ void printDebugIfNeeded() {
   Serial.print(F(" dist="));       Serial.print(distCm, 1);
   Serial.print(F(" mode="));       Serial.println(vehicleMode);
 
+  // Aktif PID değerleri (panelden geldiyse değişir, gelmediyse firmware default).
+  // Zigzag varken buraya bak: Kp/Kd araçta GERÇEKTE ne? FW sürümünü de yazar.
+  Serial.print(F("[PID]  "));      Serial.print(F(FW_VERSION));
+  Serial.print(F(" Kp="));         Serial.print(Kp, 1);
+  Serial.print(F(" Ki="));         Serial.print(Ki, 1);
+  Serial.print(F(" Kd="));         Serial.print(Kd, 1);
+  Serial.print(F(" base="));       Serial.println(baseSpeed);
+
   // ESP RX teşhis: D10'dan bayt geliyor mu, son satır ne?
   Serial.print(F("[ESP]  rxBytes=")); Serial.print(espRxBytes);
   Serial.print(F(" lines="));         Serial.print(espRxLines);
@@ -1026,7 +1050,16 @@ void setup() {
   pinMode(PIN_ENA, OUTPUT); pinMode(PIN_ENB, OUTPUT);
   stopMotors();
 
-  Serial.println(F("MEGABUS Arduino v1 ready."));
+  Serial.println(F("=========================================="));
+  Serial.println(F("MEGABUS Arduino " FW_VERSION " ready."));
+  Serial.print(F("PID defaults -> Kp=")); Serial.print(Kp);
+  Serial.print(F(" Ki="));   Serial.print(Ki);
+  Serial.print(F(" Kd="));   Serial.print(Kd);
+  Serial.print(F(" base=")); Serial.print(baseSpeed);
+  Serial.print(F(" deadband=")); Serial.print(PID_DEADBAND);
+  Serial.print(F(" lineFilt=")); Serial.println(LINE_FILTER);
+  Serial.println(F("Eger bu satiri gormuyorsan ESKI firmware yuklu demektir!"));
+  Serial.println(F("=========================================="));
   Serial.println(F("Mod: idle — ESP'den komut bekleniyor."));
 }
 
