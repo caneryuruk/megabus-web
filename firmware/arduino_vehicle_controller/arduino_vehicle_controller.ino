@@ -59,7 +59,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v2.8-soft-edge"
+#define FW_VERSION "v2.9-turn-tune"
 #define DEFAULT_BASE_SPEED   150    // 0-255. Tüm hızlar +5 daha (kullanıcı isteği). (145→150)
 #define DEFAULT_MAX_SPEED    255
 // 5 dijital sensör KADEMELİ (quantized) bir hata sinyali verir. Bu sinyalde yüksek Kd
@@ -84,11 +84,12 @@
 // ---- AYRIK DİREKSİYON ŞEKİLLENDİRME (kullanıcı isteği) ----
 // Orta-yakın sensör (s1/s3, merkezle birlikte olsa da): iç teker YAVAŞLAR (durmaz),
 // dış teker NORMAL hızda kalır. Hız farkını aşırı açma → küçük tut.
-#define GENTLE_SLOWDOWN   10   // nazik dönüşte iç teker taban hızdan bu kadar yavaşlar (15→10: fark azaltıldı)
-// En kenar sensör (s0/s4): out2/4 ile AYNI yumuşak dönüş (iki taraf da döner, iç teker
-// yavaşlar — DURMAZ), SADECE hız farkı biraz daha fazla (daha keskin ama pürüzsüz).
-// Pivot/kademe YOK (o yüzden v2.7'de zigzag oluyordu).
-#define SHARP_SLOWDOWN    20   // en kenarda iç teker bu kadar yavaşlar (gentle=10'dan biraz fazla)
+// Orta-yakın (s1/s3): iç teker yavaşlar, dış NORMAL hızda kalır. Fark = GENTLE_SLOWDOWN.
+#define GENTLE_SLOWDOWN   20   // nazik dönüş hız farkı (10→20: daha çok dönsün)
+// En kenar (s0/s4): daha keskin AMA pürüzsüz → iç teker daha çok yavaşlar + dış teker biraz
+// hızlanır (iki teker de döner, PİVOT YOK → zigzag yok). Toplam fark = SHARP_SLOWDOWN + SHARP_OUT_BOOST.
+#define SHARP_SLOWDOWN    25   // en kenarda iç teker bu kadar yavaşlar
+#define SHARP_OUT_BOOST   15   // en kenarda dış teker bu kadar hızlanır (pürüzsüz yay)
 // Yumuşak hızlanma: dönüşten sonra ANİ hız sıçraması zigzag yapar. Taban hız RAMP_START'tan
 // baseSpeed'e, her RAMP_INTERVAL_MS'de RAMP_STEP PWM kademeli yükselir. Keskin dönüşte sıfırlanır.
 #define RAMP_START       125   // dönüşten sonra başlanacak en yavaş (motoru döndüren) hız
@@ -468,13 +469,17 @@ void movePIDFollow() {
   if (e == 0) {                        // DÜZ
     rampUpBase();
     driveForward(rampBase, rampBase);
-  } else {                             // DÖNÜŞ — out2/4 ile aynı yumuşak mantık (iki taraf döner)
+  } else {                             // DÖNÜŞ — iki taraf da döner (pivot yok, pürüzsüz)
     rampUpBase();
-    // yakın yan (±1) küçük fark, en kenar (±2) biraz daha fazla fark — ikisi de PÜRÜZSÜZ
-    int slow = (e == -1 || e == 1) ? GENTLE_SLOWDOWN : SHARP_SLOWDOWN;
-    int inner = rampBase - slow;
-    if (e < 0) driveForward(inner, rampBase);   // sola: SOL yavaş, SAĞ normal
-    else       driveForward(rampBase, inner);   // sağa: SAĞ yavaş, SOL normal
+    bool far = (e == -2 || e == 2);
+    // yakın (±1): iç yavaşlar, dış normal (küçük fark).
+    // en kenar (±2): iç DAHA çok yavaşlar + dış biraz hızlanır (büyük fark, pürüzsüz yay).
+    int inner = rampBase - (far ? SHARP_SLOWDOWN : GENTLE_SLOWDOWN);
+    int outer = rampBase + (far ? SHARP_OUT_BOOST : 0);
+    inner = constrain(inner, 0, maxSpeed);
+    outer = constrain(outer, 0, maxSpeed);
+    if (e < 0) driveForward(inner, outer);   // sola: SOL iç(yavaş), SAĞ dış
+    else       driveForward(outer, inner);   // sağa: SAĞ iç(yavaş), SOL dış
   }
   strcpy(action, "PID_FOLLOW");
 }
