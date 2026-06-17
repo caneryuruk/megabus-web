@@ -2404,7 +2404,7 @@
                 <label>Kp<input id="pid-${carId}-kp" type="number" step="0.001" value="${pidValue(carId, "kp", 18)}" /></label>
                 <label>Ki<input id="pid-${carId}-ki" type="number" step="0.001" value="${pidValue(carId, "ki", 0)}" /></label>
                 <label>Kd<input id="pid-${carId}-kd" type="number" step="0.001" value="${pidValue(carId, "kd", 8)}" /></label>
-                <label>Base Speed (0-255)<input id="pid-${carId}-baseSpeed" type="number" min="0" max="255" step="1" value="${pidValue(carId, "baseSpeed", 153)}" /></label>
+                <label>Base Speed (0-255)<input id="pid-${carId}-baseSpeed" type="number" min="0" max="255" step="1" value="${pidValue(carId, "baseSpeed", 150)}" /></label>
                 <label>Max Speed (0-255)<input id="pid-${carId}-maxSpeed" type="number" min="0" max="255" step="1" value="${pidValue(carId, "maxSpeed", 255)}" /></label>
               </div>
               <button class="pid-save-button" type="button" data-pid-save data-car-id="${carId}">Save</button>
@@ -2729,7 +2729,7 @@
         kp: readPidInput(carId, "kp", 18),
         ki: readPidInput(carId, "ki", 0),
         kd: readPidInput(carId, "kd", 8),
-        baseSpeed: Math.max(0, Math.min(255, Math.round(readPidInput(carId, "baseSpeed", 153)))),
+        baseSpeed: Math.max(0, Math.min(255, Math.round(readPidInput(carId, "baseSpeed", 150)))),
         maxSpeed: Math.max(0, Math.min(255, Math.round(readPidInput(carId, "maxSpeed", 255)))),
         updatedAt: now,
         updatedBy: auth.currentUser?.email || "unknown"
