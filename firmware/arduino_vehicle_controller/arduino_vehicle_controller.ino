@@ -59,7 +59,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v2.6-speed+15"
+#define FW_VERSION "v2.8-soft-edge"
 #define DEFAULT_BASE_SPEED   150    // 0-255. Tüm hızlar +5 daha (kullanıcı isteği). (145→150)
 #define DEFAULT_MAX_SPEED    255
 // 5 dijital sensör KADEMELİ (quantized) bir hata sinyali verir. Bu sinyalde yüksek Kd
@@ -85,11 +85,10 @@
 // Orta-yakın sensör (s1/s3, merkezle birlikte olsa da): iç teker YAVAŞLAR (durmaz),
 // dış teker NORMAL hızda kalır. Hız farkını aşırı açma → küçük tut.
 #define GENTLE_SLOWDOWN   10   // nazik dönüşte iç teker taban hızdan bu kadar yavaşlar (15→10: fark azaltıldı)
-// En kenar sensör (s0/s4): iç teker DURUR (0), dış teker 3 KADEMELİ hızlanır → önce yavaş
-// pivot, sonra giderek keskin. Kademeler SOFT_STAGE_MS(400)/MEDIUM_STAGE_MS(1000) ile zamanlanır.
-#define SHARP_OUT_S0      15   // kademe 1 (ilk ~400ms): dış = base+15 → yavaş dönüş
-#define SHARP_OUT_S1      45   // kademe 2 (~400-1000ms): base+45
-#define SHARP_OUT_S2      80   // kademe 3 (>1000ms): base+80 → en keskin
+// En kenar sensör (s0/s4): out2/4 ile AYNI yumuşak dönüş (iki taraf da döner, iç teker
+// yavaşlar — DURMAZ), SADECE hız farkı biraz daha fazla (daha keskin ama pürüzsüz).
+// Pivot/kademe YOK (o yüzden v2.7'de zigzag oluyordu).
+#define SHARP_SLOWDOWN    20   // en kenarda iç teker bu kadar yavaşlar (gentle=10'dan biraz fazla)
 // Yumuşak hızlanma: dönüşten sonra ANİ hız sıçraması zigzag yapar. Taban hız RAMP_START'tan
 // baseSpeed'e, her RAMP_INTERVAL_MS'de RAMP_STEP PWM kademeli yükselir. Keskin dönüşte sıfırlanır.
 #define RAMP_START       125   // dönüşten sonra başlanacak en yavaş (motoru döndüren) hız
@@ -182,11 +181,9 @@ int lastRightCmd = 0;
 int   lastTurnDir   = 0;   // -1=sol, +1=sağ, 0=bilinmiyor
 int   sideOnlyDir   = 0;
 unsigned long sideOnlyStartMs = 0;
-// Ayrık direksiyon: yumuşak hızlanma rampası + keskin dönüş kademe zamanlayıcısı
+// Ayrık direksiyon: yumuşak hızlanma rampası
 int   rampBase      = 0;          // kademeli yükselen taban hız
 unsigned long lastRampMs = 0;
-int   sharpDir      = 0;          // aktif keskin dönüş yönü (-1/+1), 0=yok
-unsigned long sharpStartMs = 0;   // keskin dönüşün başladığı an (kademe için)
 unsigned long lineLostStartMs = 0;
 bool  lineFound     = false;
 float linePosition  = 0.0f;  // -2..+2, ağırlık merkezi
@@ -462,32 +459,22 @@ void movePIDFollow() {
   // AYRIK direksiyon (kullanıcı isteği):
   //  - merkez → DÜZ (her iki teker, yumuşak hızlanan rampBase)
   //  - orta-yakın yan (s1/s3, merkezle birlikte olsa da) → NAZİK: iç YAVAŞLAR, dış NORMAL
-  //  - en kenar (s0/s4) → KESKİN: iç DURUR (0), dış 3 KADEMELİ hızlanır (önce yavaş, sonra keskin)
+  //  - en kenar (s0/s4) → NAZİK ama biraz daha keskin: iç YAVAŞLAR (DURMAZ), dış NORMAL
   //  - dönüşten sonra ani hız yok: rampBase yavaş başlar, kademeli artar
   int e = discretePidError();          // 0, ±1 (yan-orta), ±2 (en yan)
   if (e < 0) lastTurnDir = -1; else if (e > 0) lastTurnDir = 1;
   pidError = e;                        // telemetri/debug için
-  if (e != -2 && e != 2) sharpDir = 0; // keskin dönüşten çıktı → kademe sıfırla
 
   if (e == 0) {                        // DÜZ
     rampUpBase();
     driveForward(rampBase, rampBase);
-  } else if (e == -1 || e == 1) {      // NAZİK dönüş: iç teker yavaşlar, dış NORMAL (hız farkı küçük)
+  } else {                             // DÖNÜŞ — out2/4 ile aynı yumuşak mantık (iki taraf döner)
     rampUpBase();
-    int inner = rampBase - GENTLE_SLOWDOWN;
-    if (e == -1) driveForward(inner, rampBase);   // sol yavaş, sağ normal
-    else         driveForward(rampBase, inner);   // sağ yavaş, sol normal
-  } else {                             // KESKİN dönüş (e == ±2): iç DURUR, dış 3 kademeli
-    int dir = (e < 0) ? -1 : 1;
-    if (sharpDir != dir) { sharpDir = dir; sharpStartMs = millis(); }  // bu yöne yeni girdi → zamanı başlat
-    unsigned long el = millis() - sharpStartMs;
-    int add = (el < SOFT_STAGE_MS)   ? SHARP_OUT_S0
-            : (el < MEDIUM_STAGE_MS) ? SHARP_OUT_S1
-            :                          SHARP_OUT_S2;
-    int outer = constrain(baseSpeed + add, 0, maxSpeed);
-    rampBase = RAMP_START;             // dönüşten sonra düze çıkınca yavaş başlasın
-    if (e == -2) driveForward(0, outer);     // sol DUR, sağ sür
-    else         driveForward(outer, 0);     // sağ DUR, sol sür
+    // yakın yan (±1) küçük fark, en kenar (±2) biraz daha fazla fark — ikisi de PÜRÜZSÜZ
+    int slow = (e == -1 || e == 1) ? GENTLE_SLOWDOWN : SHARP_SLOWDOWN;
+    int inner = rampBase - slow;
+    if (e < 0) driveForward(inner, rampBase);   // sola: SOL yavaş, SAĞ normal
+    else       driveForward(rampBase, inner);   // sağa: SAĞ yavaş, SOL normal
   }
   strcpy(action, "PID_FOLLOW");
 }
