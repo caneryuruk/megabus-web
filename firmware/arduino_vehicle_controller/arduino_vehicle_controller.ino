@@ -65,11 +65,11 @@
 #define DEFAULT_KD           24.0f
 #define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
 
-// Motor minimum hareket PWM (bunun altı = motor dönmez)
-#define MIN_MOVE_PWM    80
+// Motor minimum hareket PWM (bunun altı = motor dönmez). 80 bazen takılıyordu → 110.
+#define MIN_MOVE_PWM    110
 // Başlangıç boost (durağan motorları kırmak için kısa darbe)
-#define STARTUP_BOOST_PWM  180
-#define STARTUP_BOOST_MS    80
+#define STARTUP_BOOST_PWM  190
+#define STARTUP_BOOST_MS    90
 
 // Dönüş PWM sabitleri (ALL_BLACK ve LOST senaryoları için)
 #define SOFT_TURN_PWM    120
@@ -133,6 +133,9 @@ float pidIntegral  = 0;
 float pidCorrection = 0;
 const float PID_INTEGRAL_LIMIT = 50.0f;
 const float PID_CORRECTION_LIMIT = 120.0f;
+// Merkez ölü bölge: |linePosition| bunun altındayken düzeltme yapma (düz giderken zigzag azalır,
+// durak Hall mıknatısını kaçırma riski düşer). Çok büyütme yoksa çizgiden sapmayı geç fark eder.
+const float PID_DEADBAND = 0.6f;
 
 // Motor
 int configuredBaseSpeed = DEFAULT_BASE_SPEED;  // PID panelinden gelen taban hız
@@ -396,6 +399,10 @@ void resetPID() {
 void movePIDFollow() {
   pidError = linePosition;  // -2..+2
 
+  // Ölü bölge: çizgi merkeze yakınken (küçük titreşim) düzeltme yapma → düz giderken
+  // sağa-sola salınım azalır, durak mıknatısını ortadaki Hall daha güvenli yakalar.
+  if (pidError > -PID_DEADBAND && pidError < PID_DEADBAND) pidError = 0;
+
   float derivative = pidError - lastPidError;
   pidIntegral += pidError;
   pidIntegral = constrain(pidIntegral, -PID_INTEGRAL_LIMIT, PID_INTEGRAL_LIMIT);
@@ -555,9 +562,7 @@ void updateManualMovement() {
     driveManual(true,  manualSpeed, true,  manualSpeed);   // ikisi ileri
     strcpy(action, "MANUAL_FORWARD");
   } else if (strcmp(manualCmd, "BACKWARD") == 0) {
-    // Sol motor geri dönmek için ileriden daha fazla güç istiyor → geri için PWM tabanı
-    int bw = max(manualSpeed, 200);
-    driveManual(false, bw, false, bw);                     // ikisi geri (güçlü)
+    driveManual(false, manualSpeed, false, manualSpeed);   // ikisi geri (boost YOK, D13 düzeldi)
     strcpy(action, "MANUAL_BACKWARD");
   } else if (strcmp(manualCmd, "LEFT") == 0) {
     driveManual(true,  manualSpeed, true,  0);             // sağ ileri, SOL DUR → sola döner
@@ -696,7 +701,9 @@ void onMeasurementHall() {
 // Her döngü çağrılır. Manuel moda girince ölçüm ASKIYA alınır; manuelden çıkınca
 // da askıda kalır → ölçme/ML, manuelden sonraki İLK Hall'da yeniden başlar (resync).
 void updateMeasurement() {
-  bool inCalib = (strcmp(vehicleMode, "calibration") == 0);
+  // calibration VE service modunda ölç (service = Start Trips, ETA refine devam eder)
+  bool inCalib = (strcmp(vehicleMode, "calibration") == 0 ||
+                  strcmp(vehicleMode, "service") == 0);
 
   if (!inCalib) {
     if (measuring || hallCount > 0) resetMeasurement();
@@ -1027,12 +1034,12 @@ void loop() {
   if (manualEnabled) {
     // Manuel her zaman önceliklidir (mod ne olursa olsun manualEnabled=1 ise sür).
     updateManualMovement();
-  } else if (strcmp(vehicleMode, "calibration") == 0) {
-    // Ölçüm modu: çizgi takip + Hall'da segment mesafe/süre ölç
-    updateCalibrationMovement();
-  } else if (strcmp(vehicleMode, "auto") == 0 ||
+  } else if (strcmp(vehicleMode, "calibration") == 0 ||
              strcmp(vehicleMode, "service") == 0) {
-    // v1: "service" = normal çizgi takip (Start Trips bunu gönderir).
+    // calibration VE service: çizgi takip + segment ölç + ML (Start Trips de
+    // ETA'yı her turda rafine etsin diye service de ölçer).
+    updateCalibrationMovement();
+  } else if (strcmp(vehicleMode, "auto") == 0) {
     updateAutoMovement();
   } else {
     // idle / stopped / recovery (v2) / bilinmeyen → dur

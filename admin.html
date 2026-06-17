@@ -1539,6 +1539,9 @@
         if (getValidEtaTrainingRowsForCar(carId).length < ETA_MIN_TRAINING_SAMPLES) return;
         autoTrainInFlight[carId] = true;
         trainEtaModelForCar(carId)
+          // Tur biter bitmez modeli yeniden eğit VE ETA tahminini tazele; böylece hem
+          // Calibration Lap hem Start Trips (service) her turda istasyon ETA'sını günceller.
+          .then(() => predictEtaNowForCar(carId))
           .catch(() => {})
           .finally(() => { autoTrainInFlight[carId] = false; });
       });

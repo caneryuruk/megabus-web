@@ -34,7 +34,12 @@
 // Düşük gecikme: manuel'i HIZLI poll'la + TLS oturum RESUME ile handshake'i kısalt
 // (~1sn yerine ~300ms). Diğerleri (mod/pid/telemetri) latency-kritik değil, seyrek.
 #define MANUAL_POLL_MS        50    // manualControls — keep-alive ile GET ~100-200ms
-#define COMMAND_POLL_MS     8000    // commands (mod nadiren değişir)
+// commands GET'i ARTIK YEDEK: mod + expectedNextStop zaten 50ms keep-alive
+// (applyManualBody, manualControls) ile geliyor. Bu poll'u 8s→30s yavaşlattık ki
+// keep-alive'a handshake baskısı yapan transient TLS op'ları azalsın → "ara ara geç
+// algılama" düşsün. (Manuel reaktiflik için 2. madde değişikliği — gerekirse 8000'e
+// geri al.) Keep-alive yolu (manualClient/manualHttp/50ms) HİÇ DEĞİŞMEDİ.
+#define COMMAND_POLL_MS    30000    // commands — yedek poll (mod keep-alive'dan geliyor)
 #define TELEMETRY_PUSH_MS   5000    // Firebase'e telemetry yazma (panel için, kritik değil)
 #define WIFI_RETRY_MS      30000    // Wi-Fi yeniden bağlanma denemesi
 #define PID_POLL_MS        15000    // PID ayarları (yalnızca Save'de değişir)
