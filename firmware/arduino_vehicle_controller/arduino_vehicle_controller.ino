@@ -257,6 +257,7 @@ uint8_t rxIdx = 0;
 unsigned long espRxBytes = 0;       // D10'a gelen toplam bayt
 unsigned long espRxLines = 0;       // tamamlanan satır sayısı
 char  lastEspLine[64] = "(yok)";    // son alınan satır
+char  espFwVersion[20] = "?";       // ESP'nin bildirdiği firmware sürümü (>V ile gelir)
 
 // ==================== ISR ====================
 void onEncR() { encTicksR++; }
@@ -862,11 +863,21 @@ void parseEspNextStop(char* line) {
   expectedNextStop = constrain(atoi(tok), 0, STOP_COUNT);
 }
 
+// >V,<espVersion>  — ESP firmware sürümü (doğru ESP firmware'i yüklü mü görmek için)
+void parseEspVersion(char* line) {
+  char* p = line + 3;
+  char* tok = strtok(p, ",");
+  if (!tok) return;
+  strncpy(espFwVersion, tok, sizeof(espFwVersion) - 1);
+  espFwVersion[sizeof(espFwVersion) - 1] = '\0';
+}
+
 void dispatchEspLine(char* line) {
   if (line[0] != '>') return;
   if (line[1] == 'C') parseEspCommand(line);
   else if (line[1] == 'P') parseEspPid(line);
   else if (line[1] == 'N') parseEspNextStop(line);
+  else if (line[1] == 'V') parseEspVersion(line);
 }
 
 void readEspIfAvailable() {
@@ -983,8 +994,9 @@ void printDebugIfNeeded() {
   Serial.print(F(" Kd="));         Serial.print(Kd, 1);
   Serial.print(F(" base="));       Serial.println(baseSpeed);
 
-  // ESP RX teşhis: D10'dan bayt geliyor mu, son satır ne?
-  Serial.print(F("[ESP]  rxBytes=")); Serial.print(espRxBytes);
+  // ESP RX teşhis: D10'dan bayt geliyor mu, ESP sürümü ne, son satır ne?
+  Serial.print(F("[ESP]  ver="));     Serial.print(espFwVersion);
+  Serial.print(F(" rxBytes="));       Serial.print(espRxBytes);
   Serial.print(F(" lines="));         Serial.print(espRxLines);
   Serial.print(F(" manEn="));         Serial.print(manualEnabled?1:0);
   Serial.print(F(" lastLine="));      Serial.println(lastEspLine);

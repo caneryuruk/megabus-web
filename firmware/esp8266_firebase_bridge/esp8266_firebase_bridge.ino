@@ -46,6 +46,11 @@
 #define HTTP_TIMEOUT_MS     4000    // HTTPS çağrıları için zaman aşımı (takılma önler)
 #define CONN_LOST_MS        2500    // manuel veri bu kadar süredir gelmiyorsa → STOP (güvenlik)
 
+// ESP firmware sürümü — Arduino'ya >V ile bildirilir, Arduino [ESP] ver=... satırında
+// gösterir. Doğru ESP firmware'i yüklü mü buradan anlaşılır. PID keep-alive ile gelir.
+#define ESP_FW_VERSION    "ka-pid-v3"
+#define VERSION_PUSH_MS    10000     // sürümü her 10sn'de bir Arduino'ya tekrar gönder
+
 // ==================== URL YARDIMCILARI ====================
 // Stack'e geçici String basarız; tek seferlik HTTP çağrısı için yeterli.
 String fbUrl(const char* path) {
@@ -262,6 +267,14 @@ void sendPidToArduino(float kp, float ki, float kd, int base, int maxS) {
   Serial.print(kd, 3); Serial.print(',');
   Serial.print(base);  Serial.print(',');
   Serial.println(maxS);
+}
+
+// ESP sürümünü Arduino'ya bildir (>V). Arduino [ESP] ver=... satırında gösterir.
+unsigned long lastVersionPushMs = 0;
+void sendVersionIfNeeded() {
+  if (millis() - lastVersionPushMs < VERSION_PUSH_MS) return;
+  lastVersionPushMs = millis();
+  Serial.print(F(">V,")); Serial.println(F(ESP_FW_VERSION));
 }
 
 // ==================== PID AYAR POLLİNG ====================
@@ -626,8 +639,11 @@ void setup() {
   Serial1.begin(115200);
   delay(100);
 
-  Serial1.println(F("\n=== MEGABUS ESP8266 Bridge v1 ==="));
+  Serial1.println(F("\n=== MEGABUS ESP8266 Bridge " ESP_FW_VERSION " ==="));
   Serial1.print(F("CAR_ID: ")); Serial1.println(F(CAR_ID));
+
+  // Sürümü hemen Arduino'ya bildir (>V) — boot'ta görünsün
+  Serial.print(F(">V,")); Serial.println(F(ESP_FW_VERSION));
 
   startWifi();
 
@@ -663,6 +679,7 @@ void loop() {
   readPidIfNeeded();
   uploadSegmentIfPending();
   pushTelemetryIfNeeded();
+  sendVersionIfNeeded();   // ESP sürümünü Arduino'ya bildir (>V)
 
   delay(2);
 }
