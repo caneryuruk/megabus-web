@@ -60,9 +60,13 @@
 // ==================== VARSAYILAN AYARLAR ====================
 #define DEFAULT_BASE_SPEED   130    // 0-255 arası (Arduino 8-bit PWM)
 #define DEFAULT_MAX_SPEED    255
-#define DEFAULT_KP           30.0f
+// 5 dijital sensör KADEMELİ (quantized) bir hata sinyali verir. Bu sinyalde yüksek Kd
+// ZİGZAG'I ARTIRIR: hata 0'a geri dönerken türev ters yönde "tekme" üretip aracı diğer
+// tarafa savurur. O yüzden dijital çizgi takipçisinde Kd DÜŞÜK tutulur. Kp ise ölü bölge
+// (deadband) düz kısımları koruduğu için dönüşlere yetecek kadar tutulabilir.
+#define DEFAULT_KP           22.0f
 #define DEFAULT_KI           0.0f
-#define DEFAULT_KD           24.0f
+#define DEFAULT_KD           8.0f
 #define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
 
 // Motor minimum hareket PWM (bunun altı = motor dönmez). 80 bazen takılıyordu → 110.
@@ -131,8 +135,13 @@ float pidError     = 0;
 float lastPidError = 0;
 float pidIntegral  = 0;
 float pidCorrection = 0;
+float lineFilt     = 0;   // yumuşatılmış çizgi konumu (EMA) — kademeli sinyali süzer
 const float PID_INTEGRAL_LIMIT = 50.0f;
 const float PID_CORRECTION_LIMIT = 120.0f;
+// Çizgi konumu EMA katsayısı: yeni okuma ağırlığı = (1 - LINE_FILTER). Düşük = daha çok
+// yumuşatma/gecikme, yüksek = daha hızlı tepki/az yumuşatma. 0.6 hafif süzme (kademeli
+// sensör zıplamasını ve türev tekmesini azaltır, gerçek dönüşlerde gecikme ihmal edilebilir).
+const float LINE_FILTER = 0.6f;
 // Merkez ölü bölge: |linePosition| bunun altındayken düzeltme yapma (düz giderken zigzag azalır,
 // durak Hall mıknatısını kaçırma riski düşer). Çok büyütme yoksa çizgiden sapmayı geç fark eder.
 const float PID_DEADBAND = 0.6f;
@@ -394,13 +403,18 @@ uint8_t getLostStage() {
 // ==================== PID HAREKETİ ====================
 void resetPID() {
   pidError = 0; lastPidError = 0; pidIntegral = 0; pidCorrection = 0;
+  lineFilt = 0;
 }
 
 void movePIDFollow() {
-  pidError = linePosition;  // -2..+2
+  // 1) Kademeli sensör sinyalini hafifçe yumuşat (EMA). Tek okumalık zıplama (örn. anlık
+  //    ±1) süzülüp ölü bölgenin altında kalır → türev "tekmesi" oluşmaz → düz giderken
+  //    zigzag biter. Sürekli (gerçek) sapma birikip eşiği geçince normal düzeltme başlar.
+  lineFilt = LINE_FILTER * lineFilt + (1.0f - LINE_FILTER) * linePosition;
+  pidError = lineFilt;  // -2..+2 (yumuşatılmış)
 
-  // Ölü bölge: çizgi merkeze yakınken (küçük titreşim) düzeltme yapma → düz giderken
-  // sağa-sola salınım azalır, durak mıknatısını ortadaki Hall daha güvenli yakalar.
+  // 2) Ölü bölge: çizgi merkeze yakınken (küçük titreşim) düzeltme yapma → düz giderken
+  //    sağa-sola salınım azalır, durak mıknatısını ortadaki Hall daha güvenli yakalar.
   if (pidError > -PID_DEADBAND && pidError < PID_DEADBAND) pidError = 0;
 
   float derivative = pidError - lastPidError;

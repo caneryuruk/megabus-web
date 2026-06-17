@@ -276,10 +276,10 @@ void readPidIfNeeded() {
   if (ver == lastPidVersion) return;
   lastPidVersion = ver;
 
-  float kp = jsonFloat(body, "kp", 35.0);
+  float kp = jsonFloat(body, "kp", 22.0);
   float ki = jsonFloat(body, "ki", 0.0);
-  float kd = jsonFloat(body, "kd", 20.0);
-  int base = constrain(jsonInt(body, "baseSpeed", 180), 0, 255);
+  float kd = jsonFloat(body, "kd", 8.0);
+  int base = constrain(jsonInt(body, "baseSpeed", 130), 0, 255);
   int maxS = constrain(jsonInt(body, "maxSpeed", 255), 0, 255);
 
   sendPidToArduino(kp, ki, kd, base, maxS);
