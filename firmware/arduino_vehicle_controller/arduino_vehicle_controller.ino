@@ -414,16 +414,24 @@ void resetPID() {
   lineFilt = 0;
 }
 
-void movePIDFollow() {
-  // 1) Kademeli sensör sinyalini hafifçe yumuşat (EMA). Tek okumalık zıplama (örn. anlık
-  //    ±1) süzülüp ölü bölgenin altında kalır → türev "tekmesi" oluşmaz → düz giderken
-  //    zigzag biter. Sürekli (gerçek) sapma birikip eşiği geçince normal düzeltme başlar.
-  lineFilt = LINE_FILTER * lineFilt + (1.0f - LINE_FILTER) * linePosition;
-  pidError = lineFilt;  // -2..+2 (yumuşatılmış)
+// Eski çalışan ESP8266 kodunun mantığı (kanıtlanmış, zigzag yok): MERKEZ sensör çizgiyi
+// gördüğü sürece DÜZ git (çok geniş ölü bölge). Düzeltmeyi yalnızca çizgi merkezden
+// tamamen kayıp yan sensöre geçince yap. Hata kademeli: 0, ±1 (yan-orta), ±2 (en yan).
+// s[i]=true → o sensör çizgide (siyah). s[2]=merkez, s[0]=en sol, s[4]=en sağ.
+int discretePidError() {
+  if (s[2])           return 0;   // merkez sensör çizgide → DÜZ (ana ölü bölge)
+  if (s[1] && s[3])   return 0;   // çizgi merkezi sarıyor (iki yan-orta) → DÜZ
+  if (s[1])           return -1;  // sol-orta → hafif sol düzeltme
+  if (s[3])           return  1;  // sağ-orta → hafif sağ düzeltme
+  if (s[0])           return -2;  // en sol → sert sol
+  if (s[4])           return  2;  // en sağ → sert sağ
+  return 0;                        // belirsiz → düz (kayıp ise zaten moveLostSearch çalışır)
+}
 
-  // 2) Ölü bölge: çizgi merkeze yakınken (küçük titreşim) düzeltme yapma → düz giderken
-  //    sağa-sola salınım azalır, durak mıknatısını ortadaki Hall daha güvenli yakalar.
-  if (pidError > -PID_DEADBAND && pidError < PID_DEADBAND) pidError = 0;
+void movePIDFollow() {
+  // Centroid+EMA yerine eski kanıtlanmış AYRIK mantık: merkez çizgideyse düz, yoksa
+  // yana göre ±1/±2 düzelt. Geniş ölü bölge → düz giderken zigzag YOK.
+  pidError = discretePidError();
 
   float derivative = pidError - lastPidError;
   pidIntegral += pidError;
