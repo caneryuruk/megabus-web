@@ -48,7 +48,7 @@
 
 // ESP firmware sürümü — Arduino'ya >V ile bildirilir, Arduino [ESP] ver=... satırında
 // gösterir. Doğru ESP firmware'i yüklü mü buradan anlaşılır. PID keep-alive ile gelir.
-#define ESP_FW_VERSION    "ka-pid-v4"
+#define ESP_FW_VERSION    "ka-pid-v5"
 #define VERSION_PUSH_MS    10000     // sürümü her 10sn'de bir Arduino'ya tekrar gönder
 
 // ==================== URL YARDIMCILARI ====================
@@ -544,6 +544,8 @@ void pushTelemetryIfNeeded() {
   String occColor = (strcmp(tele.occupancy, "empty") == 0)   ? F("green") :
                     (strcmp(tele.occupancy, "partial") == 0)  ? F("yellow") :
                                                                  F("red");
+  int seats = (strcmp(tele.occupancy, "full") == 0) ? 2
+            : (strcmp(tele.occupancy, "partial") == 0) ? 1 : 0;
 
   String json = F("{");
 
@@ -555,6 +557,9 @@ void pushTelemetryIfNeeded() {
   json += F("\"lastSeen\":{\".sv\":\"timestamp\"},");
   // Manuel etkinse panele "manual" göster (guest ETA'yı manuelde gizler)
   json += F("\"mode\":\"");   json += (manualEnabled ? "manual" : tele.mode); json += F("\",");
+  // Doluluk — ÜST SEVİYE basit alanlar (çalışan diğer alanlar gibi düz; JSON'un başında).
+  json += F("\"occupancyStatus\":\""); json += tele.occupancy; json += F("\",");
+  json += F("\"seats\":"); json += seats; json += ',';
   json += F("\"leftPWM\":");  json += tele.leftPWM;   json += ',';
   json += F("\"rightPWM\":"); json += tele.rightPWM;  json += ',';
   json += F("\"distanceCm\":"); json += tele.distCm;  json += ',';

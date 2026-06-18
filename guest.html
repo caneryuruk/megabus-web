@@ -480,7 +480,8 @@
 
     function getOccupancy(car) {
       const occupancy = car?.occupancy || {};
-      const status = occupancy.status || "unknown";
+      // Üst seviye occupancyStatus (yeni, güvenilir) öncelikli; yoksa nested occupancy.status
+      const status = car?.occupancyStatus || occupancy.status || "unknown";
       const color = occupancy.color || (
         status === "full" ? "red" :
         status === "partial" ? "yellow" :
