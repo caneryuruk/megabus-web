@@ -48,7 +48,7 @@
 
 // ESP firmware sürümü — Arduino'ya >V ile bildirilir, Arduino [ESP] ver=... satırında
 // gösterir. Doğru ESP firmware'i yüklü mü buradan anlaşılır. PID keep-alive ile gelir.
-#define ESP_FW_VERSION    "ka-pid-v3"
+#define ESP_FW_VERSION    "ka-pid-v4"
 #define VERSION_PUSH_MS    10000     // sürümü her 10sn'de bir Arduino'ya tekrar gönder
 
 // ==================== URL YARDIMCILARI ====================
@@ -579,6 +579,10 @@ void pushTelemetryIfNeeded() {
   json += F("\"segment\":");            json += tele.segment;     json += ',';
   json += F("\"lapCount\":");           json += tele.lapCount;    json += ',';
   json += F("\"lapDurationSec\":");     json += (tele.lapDurationMs / 1000.0); json += ',';
+
+  // Üst seviye canlı FSR ham değerleri (eski/ölü "fsr1":-1 alanını CANLI değerle ezer)
+  json += F("\"fsr1\":"); json += tele.fsr1Raw; json += ',';
+  json += F("\"fsr2\":"); json += tele.fsr2Raw; json += ',';
 
   // occupancy nesnesi (mevcut şemayı koru)
   json += F("\"occupancy\":{");
