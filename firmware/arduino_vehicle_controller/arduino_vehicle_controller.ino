@@ -59,14 +59,14 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.3-slower2"
+#define FW_VERSION "v3.4-dfilter"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
 // Kd = sönümleme (overshoot/zigzag'ı azaltır). Panelden ayarlanır VE artık gerçekten kullanılır.
-#define DEFAULT_KP           25.0f
+#define DEFAULT_KP           10.0f
 #define DEFAULT_KI           0.0f
-#define DEFAULT_KD           12.0f
+#define DEFAULT_KD           46.0f
 #define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
 
 // Motor minimum hareket PWM. Eskiden 110'du ama bu, NAZİK dönüşte iç tekeri tabana
@@ -151,12 +151,17 @@ float lastPidError = 0;
 float pidIntegral  = 0;
 float pidCorrection = 0;
 float lineFilt     = 0;   // yumuşatılmış çizgi konumu (EMA) — kademeli sinyali süzer
+float derivFilt    = 0;   // yumuşatılmış türev (D terimi) — yüksek Kd'nin dönüşteki tekmesini keser
 const float PID_INTEGRAL_LIMIT = 50.0f;
 const float PID_CORRECTION_LIMIT = 120.0f;
 // Çizgi konumu EMA katsayısı: yeni okuma ağırlığı = (1 - LINE_FILTER). Düşük = daha çok
 // yumuşatma/gecikme, yüksek = daha hızlı tepki/az yumuşatma. 0.6 hafif süzme (kademeli
 // sensör zıplamasını ve türev tekmesini azaltır, gerçek dönüşlerde gecikme ihmal edilebilir).
 const float LINE_FILTER = 0.4f;   // hafif EMA: kademeli sensör jitter'ını yumuşat (yeni okuma %60)
+// Türev (D) filtresi: dönüşte çizgi sensörden sensöre zıplarken türev sıçrar; yüksek Kd bunu
+// büyütüp aracı çıldırtır. Bu low-pass o sıçramaları yumuşatır (düz yoldaki yavaş sönümlemeyi
+// bozmadan). Yüksek = daha çok yumuşatma. 0.5 dengeli.
+const float D_FILTER = 0.5f;
 // Küçük ölü bölge: |hata| bunun altındayken düzeltme yapma. KÜÇÜK tut → çizgi merkezden çok
 // kaymadan (1-1.5cm) sıkı takip; çok büyütürsen Hall mıknatısını kaçırır. 0 jitter'a tepki verir.
 const float PID_DEADBAND = 0.25f;
@@ -422,7 +427,7 @@ uint8_t getLostStage() {
 // ==================== PID HAREKETİ ====================
 void resetPID() {
   pidError = 0; lastPidError = 0; pidIntegral = 0; pidCorrection = 0;
-  lineFilt = 0;
+  lineFilt = 0; derivFilt = 0;
 }
 
 // Eski çalışan ESP8266 kodunun mantığı (kanıtlanmış, zigzag yok): MERKEZ sensör çizgiyi
@@ -453,8 +458,9 @@ void movePIDFollow() {
   if (linePosition < -0.2f) lastTurnDir = -1;
   else if (linePosition > 0.2f) lastTurnDir = 1;
 
-  float deriv = error - lastPidError;
-  float corr  = Kp * error + Kd * deriv;          // PD (Ki=0)
+  float rawDeriv = error - lastPidError;
+  derivFilt = D_FILTER * derivFilt + (1.0f - D_FILTER) * rawDeriv;  // türevi low-pass et
+  float corr = Kp * error + Kd * derivFilt;        // PD (Ki=0) — filtrelenmiş türevle
   corr = constrain(corr, -PID_CORRECTION_LIMIT, PID_CORRECTION_LIMIT);
   lastPidError = error;
   pidError = error;                               // telemetri/debug
