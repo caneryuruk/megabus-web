@@ -59,16 +59,14 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.0-wide-deadband"
+#define FW_VERSION "v3.1-proportional"
 #define DEFAULT_BASE_SPEED   150    // 0-255. Tüm hızlar +5 daha (kullanıcı isteği). (145→150)
 #define DEFAULT_MAX_SPEED    255
-// 5 dijital sensör KADEMELİ (quantized) bir hata sinyali verir. Bu sinyalde yüksek Kd
-// ZİGZAG'I ARTIRIR: hata 0'a geri dönerken türev ters yönde "tekme" üretip aracı diğer
-// tarafa savurur. O yüzden dijital çizgi takipçisinde Kd DÜŞÜK tutulur. Kp ise ölü bölge
-// (deadband) düz kısımları koruduğu için dönüşlere yetecek kadar tutulabilir.
-#define DEFAULT_KP           18.0f
+// ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
+// Kd = sönümleme (overshoot/zigzag'ı azaltır). Panelden ayarlanır VE artık gerçekten kullanılır.
+#define DEFAULT_KP           25.0f
 #define DEFAULT_KI           0.0f
-#define DEFAULT_KD           8.0f
+#define DEFAULT_KD           12.0f
 #define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
 
 // Motor minimum hareket PWM. Eskiden 110'du ama bu, NAZİK dönüşte iç tekeri tabana
@@ -84,12 +82,8 @@
 // ---- AYRIK DİREKSİYON ŞEKİLLENDİRME (kullanıcı isteği) ----
 // Orta-yakın sensör (s1/s3, merkezle birlikte olsa da): iç teker YAVAŞLAR (durmaz),
 // dış teker NORMAL hızda kalır. Hız farkını aşırı açma → küçük tut.
-// Orta-yakın (s1/s3): iç teker yavaşlar, dış NORMAL hızda kalır. Fark = GENTLE_SLOWDOWN.
-#define GENTLE_SLOWDOWN   20   // nazik dönüş hız farkı (10→20: daha çok dönsün)
-// En kenar (s0/s4): daha keskin AMA pürüzsüz → iç teker daha çok yavaşlar + dış teker biraz
-// hızlanır (iki teker de döner, PİVOT YOK → zigzag yok). Toplam fark = SHARP_SLOWDOWN + SHARP_OUT_BOOST.
-#define SHARP_SLOWDOWN    25   // en kenarda iç teker bu kadar yavaşlar
-#define SHARP_OUT_BOOST   15   // en kenarda dış teker bu kadar hızlanır (pürüzsüz yay)
+// NOT: Ayrık (GENTLE/SHARP) direksiyon şekillendirme KALDIRILDI. Direksiyon artık gerçek
+// ORANSAL PD kontrol (Kp/Kd ile, centroid hata üzerinden) — movePIDFollow'a bak.
 // Yumuşak hızlanma: dönüşten sonra ANİ hız sıçraması zigzag yapar. Taban hız RAMP_START'tan
 // baseSpeed'e, her RAMP_INTERVAL_MS'de RAMP_STEP PWM kademeli yükselir. Keskin dönüşte sıfırlanır.
 #define RAMP_START       125   // dönüşten sonra başlanacak en yavaş (motoru döndüren) hız
@@ -162,10 +156,10 @@ const float PID_CORRECTION_LIMIT = 120.0f;
 // Çizgi konumu EMA katsayısı: yeni okuma ağırlığı = (1 - LINE_FILTER). Düşük = daha çok
 // yumuşatma/gecikme, yüksek = daha hızlı tepki/az yumuşatma. 0.6 hafif süzme (kademeli
 // sensör zıplamasını ve türev tekmesini azaltır, gerçek dönüşlerde gecikme ihmal edilebilir).
-const float LINE_FILTER = 0.6f;   // (artık kullanılmıyor — ayrık direksiyona geçildi, zararsız)
-// Merkez ölü bölge: |linePosition| bunun altındayken düzeltme yapma (düz giderken zigzag azalır,
-// durak Hall mıknatısını kaçırma riski düşer). Çok büyütme yoksa çizgiden sapmayı geç fark eder.
-const float PID_DEADBAND = 0.6f;
+const float LINE_FILTER = 0.4f;   // hafif EMA: kademeli sensör jitter'ını yumuşat (yeni okuma %60)
+// Küçük ölü bölge: |hata| bunun altındayken düzeltme yapma. KÜÇÜK tut → çizgi merkezden çok
+// kaymadan (1-1.5cm) sıkı takip; çok büyütürsen Hall mıknatısını kaçırır. 0 jitter'a tepki verir.
+const float PID_DEADBAND = 0.25f;
 
 // Motor
 int configuredBaseSpeed = DEFAULT_BASE_SPEED;  // PID panelinden gelen taban hız
@@ -435,21 +429,7 @@ void resetPID() {
 // gördüğü sürece DÜZ git (çok geniş ölü bölge). Düzeltmeyi yalnızca çizgi merkezden
 // tamamen kayıp yan sensöre geçince yap. Hata kademeli: 0, ±1 (yan-orta), ±2 (en yan).
 // s[i]=true → o sensör çizgide (siyah). s[2]=merkez, s[0]=en sol, s[4]=en sağ.
-int discretePidError() {
-  // GENİŞ ÖLÜ BÖLGE: merkez sensör çizgiyi gördüğü SÜRECE DÜZ git. Düz yolda küçük kaymalarda
-  // (s2 hâlâ çizgide) düzeltme YAPMA → "çapraz/zigzag" salınımı biter. Düzeltme yalnızca çizgi
-  // merkezden TAMAMEN çıkınca başlar. (Önceki "merkezle birlikte de dön" salınıma yol açıyordu.)
-  if (s[2])           return 0;   // merkez çizgide → DÜZ
-  if (s[1] && s[3])   return 0;   // çizgi merkezi geniş sarıyor → DÜZ
-  // Merkez çizgiyi KAYBETTİ → çizgi nerede? En kenar öncelik (keskin), sonra yan-orta (nazik).
-  if (s[0])           return -2;  // en sol → keskin sol
-  if (s[4])           return  2;  // en sağ → keskin sağ
-  if (s[1])           return -1;  // sol-orta → nazik sol
-  if (s[3])           return  1;  // sağ-orta → nazik sağ
-  return 0;
-}
-
-// Yumuşak hızlanma: taban hızı RAMP_START'tan baseSpeed'e kademeli yükselt (ani hız zigzag yapar).
+// Yumuşak hızlanma: taban hızı RAMP_START'tan baseSpeed'e kademeli yükselt (ani başlangıç yumuşar).
 void rampUpBase() {
   if (rampBase < RAMP_START) rampBase = RAMP_START;
   if (millis() - lastRampMs >= RAMP_INTERVAL_MS) {
@@ -460,30 +440,29 @@ void rampUpBase() {
 }
 
 void movePIDFollow() {
-  // AYRIK direksiyon (kullanıcı isteği):
-  //  - merkez → DÜZ (her iki teker, yumuşak hızlanan rampBase)
-  //  - orta-yakın yan (s1/s3, merkezle birlikte olsa da) → NAZİK: iç YAVAŞLAR, dış NORMAL
-  //  - en kenar (s0/s4) → NAZİK ama biraz daha keskin: iç YAVAŞLAR (DURMAZ), dış NORMAL
-  //  - dönüşten sonra ani hız yok: rampBase yavaş başlar, kademeli artar
-  int e = discretePidError();          // 0, ±1 (yan-orta), ±2 (en yan)
-  if (e < 0) lastTurnDir = -1; else if (e > 0) lastTurnDir = 1;
-  pidError = e;                        // telemetri/debug için
+  // GERÇEK ORANSAL PD KONTROL (Kp/Kd panelden, GERÇEKTEN kullanılır — ayrık sürümde
+  // kullanılmıyordu!). 5 sensör ağırlık merkezi (linePosition, -2..+2) = hata.
+  //  - hafif EMA → kademeli jitter yumuşar
+  //  - küçük ölü bölge → merkeze çok yakın titreşimi yok say (sıkı takip)
+  //  - düzeltme HATAYLA ORANTILI → düz yolda küçük hata=küçük düzeltme (overshoot yok=zigzag yok),
+  //    dönüşte büyük hata=güçlü düzeltme. İki teker de döner (pivot YOK → yalpalama yok).
+  lineFilt = LINE_FILTER * lineFilt + (1.0f - LINE_FILTER) * linePosition;
+  float error = lineFilt;
+  if (error > -PID_DEADBAND && error < PID_DEADBAND) error = 0;
 
-  if (e == 0) {                        // DÜZ
-    rampUpBase();
-    driveForward(rampBase, rampBase);
-  } else {                             // DÖNÜŞ — iki taraf da döner (pivot yok, pürüzsüz)
-    rampUpBase();
-    bool far = (e == -2 || e == 2);
-    // yakın (±1): iç yavaşlar, dış normal (küçük fark).
-    // en kenar (±2): iç DAHA çok yavaşlar + dış biraz hızlanır (büyük fark, pürüzsüz yay).
-    int inner = rampBase - (far ? SHARP_SLOWDOWN : GENTLE_SLOWDOWN);
-    int outer = rampBase + (far ? SHARP_OUT_BOOST : 0);
-    inner = constrain(inner, 0, maxSpeed);
-    outer = constrain(outer, 0, maxSpeed);
-    if (e < 0) driveForward(inner, outer);   // sola: SOL iç(yavaş), SAĞ dış
-    else       driveForward(outer, inner);   // sağa: SAĞ iç(yavaş), SOL dış
-  }
+  if (linePosition < -0.2f) lastTurnDir = -1;
+  else if (linePosition > 0.2f) lastTurnDir = 1;
+
+  float deriv = error - lastPidError;
+  float corr  = Kp * error + Kd * deriv;          // PD (Ki=0)
+  corr = constrain(corr, -PID_CORRECTION_LIMIT, PID_CORRECTION_LIMIT);
+  lastPidError = error;
+  pidError = error;                               // telemetri/debug
+
+  rampUpBase();
+  int left  = constrain(rampBase + (int)corr, 0, maxSpeed);   // hata>0 (sağ) → sol hızlı → sağa döner
+  int right = constrain(rampBase - (int)corr, 0, maxSpeed);
+  driveForward(left, right);
   strcpy(action, "PID_FOLLOW");
 }
 
