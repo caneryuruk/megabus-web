@@ -2415,44 +2415,53 @@
     }
 
     function renderRouteSummary() {
-      const trainedModelCount = EXPECTED_CARS.filter(carId => getEtaModelStatusForCar(carId) === "Trained").length;
-      const needsRetrainingCount = EXPECTED_CARS.filter(carId => getEtaModelStatusForCar(carId) === "Needs retraining").length;
-      const oldModelCount = EXPECTED_CARS.filter(carId => getEtaModelStatusForCar(carId) === "Old model").length;
-      const activeSampleCount = EXPECTED_CARS.reduce((total, carId) => {
-        return total + getActiveRouteTrainingSamplesForCar(carId).length;
-      }, 0);
-      const segments = routeData?.segments || {};
-      const segmentRows = Array.from({ length: 6 }, (_, index) => {
-        const segment = segments[String(index)] || {};
-        return fieldBox(
-          `Segment ${index}: stop${segment.from ?? index} -> stop${segment.to ?? ((index + 1) % 6)}`,
-          `Distance: ${valueOrNoData(segment.distance, " cm")} | Duration: ${formatDurationMs(segment.duration)}`
-        );
+      const anyActive = EXPECTED_CARS.some(carId => {
+        const m = carsData?.[carId]?.mode;
+        return m === "calibration" || m === "service";
+      });
+
+      const carRows = EXPECTED_CARS.map(carId => {
+        const car = carsData?.[carId] || {};
+        const mode = car.mode || "idle";
+        const lap = Number(car.lapCount || 0);
+        const samples = getActiveRouteTrainingSamplesForCar(carId).length;
+        const status = getEtaModelStatusForCar(carId);
+        const model = getEtaModelInfoForCar(carId);
+        const mlActive = (mode === "calibration" || mode === "service");
+        const modeLabel = mode === "calibration" ? "Calibration Lap"
+                        : mode === "service" ? "Service (Start Trips)"
+                        : mode === "manual" ? "Manual"
+                        : mode === "auto" ? "Auto" : "Idle";
+        const modelText = status === "Trained"
+          ? `✅ Trained (MAE ${formatAiMae(model?.mae)})`
+          : (samples >= ETA_MIN_TRAINING_SAMPLES ? "⏳ Ready to train" : "📊 Collecting data…");
+        const dot = mlActive ? "#22c55e" : "#64748b";
+        return `
+          <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);margin-top:8px;">
+            <span style="display:inline-flex;align-items:center;gap:8px;min-width:150px;">
+              <span style="width:10px;height:10px;border-radius:50%;background:${dot};"></span>
+              <strong>${carId}</strong><span style="opacity:.65;">${mlActive ? "ML active" : "ML idle"}</span>
+            </span>
+            <span>Mode: <b>${modeLabel}</b></span>
+            <span>Lap: <b style="color:#38bdf8;font-size:1.05em;">${lap}</b></span>
+            <span>Samples: <b>${samples}</b>/${ETA_MIN_TRAINING_SAMPLES}</span>
+            <span>${modelText}</span>
+          </div>
+        `;
       }).join("");
 
       routeSummaryContainer.innerHTML = `
         <div class="system-card">
-          <div class="telemetry-grid">
-            ${fieldBox("routeCalibrated", boolText(routeData?.routeCalibrated))}
-            ${fieldBox("Route Version", valueOrNoData(routeData?.routeVersion))}
-            ${fieldBox("measuredBy", valueOrNoData(routeData?.measuredBy))}
-            ${fieldBox("measuredAt", formatTimestamp(routeData?.measuredAt))}
-            ${fieldBox("totalDistance", valueOrNoData(routeData?.totalDistance, " cm"))}
-            ${fieldBox("totalDuration", formatDurationMs(routeData?.totalDuration))}
-            ${fieldBox("averageSegmentDuration", formatDurationMs(routeData?.averageSegmentDuration))}
+          <div style="padding:12px;border-radius:10px;font-weight:600;${anyActive
+            ? "background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.5);color:#bbf7d0;"
+            : "background:rgba(100,116,139,0.12);border:1px solid rgba(100,116,139,0.4);color:#cbd5e1;"}">
+            ${anyActive
+              ? "🟢 ML ACTIVE — vehicles are collecting data each lap; the model retrains after every completed lap and all stations' ETA is updated."
+              : "⚪ ML idle — press “Distance & Duration Calibration Lap” (or Start Trips) to begin."}
           </div>
-          <div class="sub-title">AI ETA Prediction</div>
-          <div class="telemetry-grid">
-            ${fieldBox("Model Scope", "Car-based")}
-            ${fieldBox("Trained Car Models", `${trainedModelCount}/${EXPECTED_CARS.length}`)}
-            ${fieldBox("Needs Retraining Models", valueOrNoData(needsRetrainingCount))}
-            ${fieldBox("Old Models", valueOrNoData(oldModelCount))}
-            ${fieldBox("Active Route Samples", valueOrNoData(activeSampleCount))}
-            ${fieldBox("Total Training Samples", valueOrNoData(countMlTrainingSamples()))}
-          </div>
-          <div class="sub-title">Segments</div>
-          <div class="telemetry-grid">
-            ${segmentRows}
+          ${carRows}
+          <div style="margin-top:10px;opacity:.65;font-size:13px;">
+            Route calibrated: ${boolText(routeData?.routeCalibrated)} · Active route version: ${valueOrNoData(systemData?.activeRouteVersion)} · ~${ETA_MIN_TRAINING_SAMPLES} samples/car (≈2 laps) recommended before Start Trips.
           </div>
         </div>
       `;
@@ -2464,122 +2473,33 @@
       }
 
       const carId = selectedEtaCarId;
-      const etaModelMeta = getEtaModelInfoForCar(carId);
       const activeVersion = Number(systemData?.activeRouteVersion || 0);
-      const routeVersion = Number(routeData?.routeVersion || 0);
-      const activeSamples = getActiveRouteTrainingSamplesForCar(carId);
       const validRows = getValidEtaTrainingRowsForCar(carId);
-      const totalSamples = getTotalTrainingSampleCountForCar(carId);
-      const trainingState = getEtaTrainingStateForCar(carId);
-      const predictionState = getEtaPredictionStateForCar(carId);
-      const status = getEtaModelStatusForCar(carId);
-      const statusBadge = `<span class="model-status ${modelStatusClass(status)}">${status}</span>`;
-      const sampleSummary = activeVersion
-        ? String(activeSamples.length)
-        : "No active route version yet";
-      const features = etaInputFeatures(etaModelMeta);
       const tfLoaded = typeof window !== "undefined" && !!window.tf;
       const trainDisabled = etaTrainingInProgressByCar[carId] ||
-        !tfLoaded ||
-        !activeVersion ||
-        validRows.length < ETA_MIN_TRAINING_SAMPLES;
-      const predictionDisabledReason = getEtaPredictionDisabledReasonForCar(carId);
-      const predictionDisabled = Boolean(predictionDisabledReason);
-      const predictionInputText = predictionState.input
-        ? ETA_INPUT_FEATURES
-          .map(feature => `${feature}: ${valueOrNoData(predictionState.input?.[feature])}`)
-          .join("<br>")
-        : "No data";
-      const predictionEtaText = predictionState.predictedSec === undefined ||
-        predictionState.predictedSec === null
-        ? "No data"
-        : `${predictionState.predictedSec}s`;
-      const predictionStatusText = predictionState.message ||
-        (predictionDisabledReason || "Ready");
-      const sampleWarning = activeVersion && validRows.length < ETA_MIN_TRAINING_SAMPLES
-        ? `<div class="ai-note ai-warning">${carId}: at least 10 valid samples are required. Current valid samples: ${validRows.length}/${ETA_MIN_TRAINING_SAMPLES}.</div>`
-        : "";
-      const tfWarning = tfLoaded
-        ? ""
-        : `<div class="ai-note ai-warning">TensorFlow.js could not be loaded.</div>`;
-      const predictionWarning = predictionDisabledReason && predictionDisabledReason !== "Predicting..."
-        ? `<div class="ai-note ai-warning">${predictionDisabledReason}</div>`
-        : "";
+        !tfLoaded || !activeVersion || validRows.length < ETA_MIN_TRAINING_SAMPLES;
+      const predictionDisabled = Boolean(getEtaPredictionDisabledReasonForCar(carId));
       const carSelectorButtons = EXPECTED_CARS.map(expectedCarId => `
-        <button
-          class="ai-placeholder-button eta-car-model-button"
-          type="button"
-          data-eta-car-select="${expectedCarId}"
-          aria-pressed="${expectedCarId === carId ? "true" : "false"}">
+        <button class="ai-placeholder-button eta-car-model-button" type="button"
+          data-eta-car-select="${expectedCarId}" aria-pressed="${expectedCarId === carId ? "true" : "false"}">
           ${expectedCarId}
         </button>
       `).join("");
-      const carModelSummary = EXPECTED_CARS.map(expectedCarId => {
-        const model = getEtaModelInfoForCar(expectedCarId);
-        const modelStatus = getEtaModelStatusForCar(expectedCarId);
-        const activeCarSamples = getActiveRouteTrainingSamplesForCar(expectedCarId).length;
-        return `<div class="mini-row"><strong>${expectedCarId}</strong> | ${modelStatus} | active samples: ${activeCarSamples} | MAE: ${formatAiMae(model?.mae)}</div>`;
-      }).join("");
 
       aiTrainingContainer.innerHTML = `
         <div class="system-card">
-          <div class="ai-training-layout">
-            <div>
-              <div class="telemetry-grid">
-                ${fieldBox("Selected Car", carId)}
-                ${fieldBox("Active Route Version", activeVersion || "No active route version yet")}
-                ${fieldBox("Route Version", routeVersion || "No data")}
-                ${fieldBox("Car Model Status", statusBadge)}
-                ${fieldBox("Needs Retraining", boolText(etaModelMeta?.needsRetraining))}
-                ${fieldBox("Trained Route Version", valueOrNoData(etaModelMeta?.trainedRouteVersion))}
-                ${fieldBox("Training Samples For This Car And Active Route", sampleSummary)}
-                ${fieldBox("Valid Training Samples", activeVersion ? valueOrNoData(validRows.length) : "No active route version yet")}
-                ${fieldBox("Total Training Samples For This Car", valueOrNoData(totalSamples))}
-                ${fieldBox("Training State", trainingState.state)}
-                ${fieldBox("Last Training Message", trainingState.message)}
-                ${fieldBox("Last Trained At", formatAiTimestamp(etaModelMeta?.lastTrainedAt))}
-                ${fieldBox("Last Invalidated At", formatAiTimestamp(etaModelMeta?.lastInvalidatedAt))}
-                ${fieldBox("MAE", formatAiMae(etaModelMeta?.mae))}
-                ${fieldBox("Model Type", valueOrNoData(etaModelMeta?.modelType || "TensorFlow.js Regression"))}
-                ${fieldBox("Output Label", valueOrNoData(etaModelMeta?.outputLabel || "actualDurationSec"))}
-                ${fieldBox("Browser Model", etaModelsByCar[carId] ? "Loaded in memory" : "Not in memory")}
-                ${fieldBox("Prediction Status", predictionStatusText)}
-                ${fieldBox("Last Prediction Car", valueOrNoData(predictionState.carId))}
-                ${fieldBox("Last Prediction ETA", predictionEtaText)}
-                ${fieldBox("Last Prediction Route Version", valueOrNoData(predictionState.routeVersion))}
-                ${fieldBox("Last Prediction Input", predictionInputText)}
-              </div>
-              ${tfWarning}
-              ${sampleWarning}
-              ${predictionWarning}
-            </div>
-
-            <div>
-              <div class="sub-title">AI ETA Car Model</div>
-              <div class="system-actions">
-                ${carSelectorButtons}
-              </div>
-
-              <div class="sub-title">Car Model Summary</div>
-              <div class="ai-note">${carModelSummary}</div>
-
-              <div class="sub-title">Input Features</div>
-              <div class="feature-list">
-                ${features.map(feature => `<span class="feature-chip">${feature}</span>`).join("")}
-              </div>
-
-              <div class="system-actions">
-                <button class="ai-placeholder-button" type="button" data-ai-train-model ${trainDisabled ? "disabled" : ""}>
-                  ${etaTrainingInProgressByCar[carId] ? "Training..." : `Train ${carId} Model`}
-                </button>
-                <button class="ai-placeholder-button" type="button" data-ai-predict-now ${predictionDisabled ? "disabled" : ""}>
-                  ${predictionState.status === "predicting" ? "Predicting..." : `Predict ${carId} ETA Now`}
-                </button>
-                <button class="btn-red" type="button" data-ml-reset>Reset ML (route changed)</button>
-              </div>
-              <div class="ai-note">Each car learns from its own /mlTrainingData/${carId} samples and auto-trains after each completed lap (~10 laps recommended before starting trips). "Reset ML" wipes all training data &amp; models for every car — use it when the metrobus route changes.</div>
-            </div>
+          <div class="sub-title">Manual actions (training is automatic each lap)</div>
+          <div class="system-actions">${carSelectorButtons}</div>
+          <div class="system-actions">
+            <button class="ai-placeholder-button" type="button" data-ai-train-model ${trainDisabled ? "disabled" : ""}>
+              ${etaTrainingInProgressByCar[carId] ? "Training…" : `Train ${carId} model now`}
+            </button>
+            <button class="ai-placeholder-button" type="button" data-ai-predict-now ${predictionDisabled ? "disabled" : ""}>
+              Predict ${carId} ETA now
+            </button>
+            <button class="btn-red" type="button" data-ml-reset>Reset ML (route changed)</button>
           </div>
+          <div class="ai-note">Auto-trains after each completed lap (~10 laps recommended before Start Trips). “Reset ML” wipes all training data &amp; models for every car — use it when the route changes.</div>
         </div>
       `;
     }
