@@ -294,7 +294,7 @@ void readPidIfNeeded() {
   float kp = jsonFloat(body, "kp", 25.0);
   float ki = jsonFloat(body, "ki", 0.0);
   float kd = jsonFloat(body, "kd", 12.0);
-  int base = constrain(jsonInt(body, "baseSpeed", 135), 130, 255);
+  int base = constrain(jsonInt(body, "baseSpeed", 110), 95, 255);
   int maxS = constrain(jsonInt(body, "maxSpeed", 255), 0, 255);
 
   sendPidToArduino(kp, ki, kd, base, maxS);
@@ -335,7 +335,7 @@ void applyManualBody(const String& body) {
     float kp = jsonFloat(body, "kp", 25.0);
     float ki = jsonFloat(body, "ki", 0.0);
     float kd = jsonFloat(body, "kd", 12.0);
-    int base = constrain(jsonInt(body, "baseSpeed", 135), 130, 255);
+    int base = constrain(jsonInt(body, "baseSpeed", 110), 95, 255);
     int maxS = constrain(jsonInt(body, "maxSpeed", 255), 0, 255);
     String sig = String(kp,1)+","+String(ki,1)+","+String(kd,1)+","+String(base)+","+String(maxS);
     if (sig != lastPidSigKA) {

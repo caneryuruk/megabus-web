@@ -59,8 +59,8 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.2-slower"
-#define DEFAULT_BASE_SPEED   135    // 0-255. Hız düşürüldü (150→135): araç çok hızlıydı→zigzag. 130 ALTINA İNME (pil zayıf, altı dönmüyor).
+#define FW_VERSION "v3.3-slower2"
+#define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
 // Kd = sönümleme (overshoot/zigzag'ı azaltır). Panelden ayarlanır VE artık gerçekten kullanılır.
@@ -73,10 +73,10 @@
 // yapıştırıp durduruyordu (kullanıcı şikayeti). Düşürdük (85) ki iç teker dönüşte
 // YAVAŞLAYABİLSİN ama dönmeye devam etsin. Kalkış takılması STARTUP_BOOST ile çözülüyor
 // (teker zaten yuvarlanırken 85 PWM onu döndürmeye yeter; duran tekeri boost kırar).
-#define MIN_MOVE_PWM    130   // pil zayıfken motorlar 130 ALTINDA dönmüyor (kullanıcı ölçtü)
+#define MIN_MOVE_PWM    95    // düz hız 110'a indi → floor de düştü ki takılmasın (boost kalkışı kırar)
 // Başlangıç boost (durağan motorları kırmak için kısa darbe). Floor düştüğü için süreyi
 // 90→120ms uzattık ki 0'dan kalkış garanti olsun.
-#define STARTUP_BOOST_PWM  205
+#define STARTUP_BOOST_PWM  195
 #define STARTUP_BOOST_MS   120
 
 // ---- AYRIK DİREKSİYON ŞEKİLLENDİRME (kullanıcı isteği) ----
@@ -86,14 +86,14 @@
 // ORANSAL PD kontrol (Kp/Kd ile, centroid hata üzerinden) — movePIDFollow'a bak.
 // Yumuşak hızlanma: dönüşten sonra ANİ hız sıçraması zigzag yapar. Taban hız RAMP_START'tan
 // baseSpeed'e, her RAMP_INTERVAL_MS'de RAMP_STEP PWM kademeli yükselir. Keskin dönüşte sıfırlanır.
-#define RAMP_START       130   // en yavaş (motoru döndüren) başlangıç hızı — 130 altı dönmüyor
+#define RAMP_START       100   // başlangıç hızı (taban 110'un altında, kademeli 110'a çıkar)
 #define RAMP_STEP          3
 #define RAMP_INTERVAL_MS  20
 
 // Dönüş PWM sabitleri (ALL_BLACK ve LOST senaryoları için)
-#define SOFT_TURN_PWM    135
-#define MEDIUM_TURN_PWM  165
-#define HARD_TURN_PWM    205
+#define SOFT_TURN_PWM    125
+#define MEDIUM_TURN_PWM  155
+#define HARD_TURN_PWM    195
 
 // Sideonly (tek yan sensör) evre süreleri
 #define SOFT_STAGE_MS    400
@@ -127,8 +127,8 @@
 #define DIST_STOP_CM       8.0f
 #define DIST_VERY_SLOW_CM 18.0f
 #define DIST_SLOW_CM      35.0f
-#define VERY_SLOW_SPEED   130   // 130 altı dönmüyor (pil zayıf)
-#define SLOW_SPEED         133
+#define VERY_SLOW_SPEED   120   // -10 (taban 110'a takılı; engelde daha çok yavaşlamaz, zaten yavaş)
+#define SLOW_SPEED         123
 
 // ==================== GLOBAL NESNELER ====================
 SoftwareSerial espSerial(PIN_ESP_RX, PIN_ESP_TX);
