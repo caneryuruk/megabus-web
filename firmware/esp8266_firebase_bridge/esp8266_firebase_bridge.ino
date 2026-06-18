@@ -48,7 +48,7 @@
 
 // ESP firmware sürümü — Arduino'ya >V ile bildirilir, Arduino [ESP] ver=... satırında
 // gösterir. Doğru ESP firmware'i yüklü mü buradan anlaşılır. PID keep-alive ile gelir.
-#define ESP_FW_VERSION    "ka-pid-v9"
+#define ESP_FW_VERSION    "ka-pid-v10"
 #define VERSION_PUSH_MS     3000     // sürüm+teleRx'i her 3sn'de bir Arduino'ya gönder (teşhis)
 
 // ==================== URL YARDIMCILARI ====================
@@ -77,6 +77,8 @@ int   manualSpeed        = 0;
 unsigned long lastManualOkMs = 0;       // son başarılı manuel okuma (bağlantı sağlığı)
 String lastManualVersion = "";          // sürüm dedup
 unsigned long lastManualPollMs = 0;     // poll zamanlayıcı
+String lastCmdSig = "";                 // son gönderilen >C imzası (değişince gönder → seri trafiği az)
+unsigned long lastCmdSentMs = 0;        // son >C gönderim anı (500ms heartbeat)
 
 // TLS oturumu — transient çağrılarda handshake'i RESUME ile kısaltır.
 BearSSL::Session firebaseSession;
@@ -446,19 +448,25 @@ void pushCommandToArduino() {
   //   lastManualOkMs= son başarılı manuel okumanın zamanı
   bool connectionLost = !wifiOk || (millis() - lastManualOkMs > CONN_LOST_MS);
   if (connectionLost) {
-    // Latch'i temizle ki bağlantı dönünce araç kendiliğinden harekete geçmesin
+    // Bağlantı koptu → STOP (her döngü, güvenlik). Latch temizle, dönünce yeniden gönderilsin.
     strncpy(manualCmd, "STOP", sizeof(manualCmd));
     sendToArduino(vehicleMode, manualEnabled, "STOP", 0);
+    lastCmdSig = "";
     return;
   }
 
-  // Manuel etkinken GERÇEK modu koru (ör. calibration) + manuel bayrağını set et.
-  // Böylece Arduino kalibrasyon modunda olduğunu bilir ve manuel sırasında
-  // ölçümü SIFIRLAMAZ, sadece DURAKLATIR. (Mod="manual" gönderirsek ölçüm sıfırlanır.)
-  if (manualEnabled) {
-    sendToArduino(vehicleMode, true, manualCmd, manualSpeed);
-  } else {
-    sendToArduino(vehicleMode, false, "STOP", 0);
+  // KOMUTU YALNIZCA DEĞİŞTİĞİNDE (+ 500ms heartbeat) gönder. Half-duplex SoftwareSerial'da
+  // her döngü komut göndermek, Arduino'nun telemetri TX'ini bozup teleRx'i sıfırlıyordu.
+  // Trafiği azaltınca telemetri (FSR dahil) ESP'ye temiz ulaşır. Manuel anında gider
+  // (değişince hemen) + heartbeat ile kayıp komut <500ms'de tekrar gönderilir.
+  // (Mod="manual" göndermeyiz; gerçek modu koruruz ki kalibrasyon ölçümü sıfırlanmasın.)
+  const char* cmd = manualEnabled ? manualCmd : "STOP";
+  int spd = manualEnabled ? manualSpeed : 0;
+  String sig = String(vehicleMode) + (manualEnabled ? '1' : '0') + cmd + spd;
+  if (sig != lastCmdSig || millis() - lastCmdSentMs > 500) {
+    lastCmdSig = sig;
+    lastCmdSentMs = millis();
+    sendToArduino(vehicleMode, manualEnabled, cmd, spd);
   }
 }
 

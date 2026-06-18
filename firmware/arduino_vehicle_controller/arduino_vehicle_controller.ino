@@ -58,7 +58,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.11-teletx"
+#define FW_VERSION "v3.12-cmdthrottle"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
@@ -67,7 +67,7 @@
 #define DEFAULT_KP            9.0f
 #define DEFAULT_KI            0.0f
 #define DEFAULT_KD           51.0f
-#define FSR_THRESHOLD 200  // analogRead (0-1023): bu değerin ÜSTÜ = koltukta biri oturuyor. Serial [FSR] ham değere bakıp ayarla.
+#define FSR_THRESHOLD 40   // analogRead (0-1023): bu değerin ÜSTÜ = koltukta biri oturuyor. (200→40: basınç değerleri küçük geliyordu.)
 
 // Motor minimum hareket PWM. Eskiden 110'du ama bu, NAZİK dönüşte iç tekeri tabana
 // yapıştırıp durduruyordu (kullanıcı şikayeti). Düşürdük (85) ki iç teker dönüşte
