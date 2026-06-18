@@ -48,7 +48,7 @@
 
 // ESP firmware sürümü — Arduino'ya >V ile bildirilir, Arduino [ESP] ver=... satırında
 // gösterir. Doğru ESP firmware'i yüklü mü buradan anlaşılır. PID keep-alive ile gelir.
-#define ESP_FW_VERSION    "ka-pid-v5"
+#define ESP_FW_VERSION    "ka-pid-v6"
 #define VERSION_PUSH_MS    10000     // sürümü her 10sn'de bir Arduino'ya tekrar gönder
 
 // ==================== URL YARDIMCILARI ====================
@@ -130,6 +130,9 @@ unsigned long lastPidKaMs = 0;  // keep-alive PID parse hız sınırı (manuel h
 // Arduino'dan gelen satır buffer'ı (genişletilmiş telemetri ~125 karakter olabilir)
 char  arBuf[160];
 uint16_t arIdx = 0;
+// TEŞHİS: Arduino telemetrisi FSR'ye kadar (8. alan) kaç kez parse edildi. DB'de artmıyorsa
+// ESP telemetriyi almıyor demektir (Arduino D11→ESP RX kablosu / parse sorunu).
+unsigned long teleCount = 0;
 
 // ==================== Wi-Fi ====================
 void startWifi() {
@@ -470,6 +473,7 @@ void parseTelemetry(char* line) {
   tok = strtok(NULL, ","); if (!tok) return; strncpy(tele.lineCase, tok, 15); tele.lineCase[15]='\0';
   tok = strtok(NULL, ","); if (!tok) return; tele.fsr1Raw         = atoi(tok);
   tok = strtok(NULL, ","); if (!tok) return; tele.fsr2Raw         = atoi(tok);
+  teleCount++;   // FSR alanlarına ulaşıldı → telemetri alınıyor + fsr parse ediliyor
   tok = strtok(NULL, ","); if (!tok) return; strncpy(tele.occupancy, tok, 7); tele.occupancy[7]='\0';
   tok = strtok(NULL, ","); if (!tok) return; tele.encL            = atol(tok);
   tok = strtok(NULL, ","); if (!tok) return; tele.encR            = atol(tok);
@@ -560,6 +564,7 @@ void pushTelemetryIfNeeded() {
   // Doluluk — ÜST SEVİYE basit alanlar (çalışan diğer alanlar gibi düz; JSON'un başında).
   json += F("\"occupancyStatus\":\""); json += tele.occupancy; json += F("\",");
   json += F("\"seats\":"); json += seats; json += ',';
+  json += F("\"teleCount\":"); json += teleCount; json += ',';   // TEŞHİS: artmıyorsa telemetri ESP'ye ulaşmıyor
   json += F("\"leftPWM\":");  json += tele.leftPWM;   json += ',';
   json += F("\"rightPWM\":"); json += tele.rightPWM;  json += ',';
   json += F("\"distanceCm\":"); json += tele.distCm;  json += ',';
@@ -641,7 +646,10 @@ void uploadSegmentIfPending() {
 
 // ==================== SETUP ====================
 void setup() {
-  // Serial (Hardware UART) ↔ Arduino
+  // Serial (Hardware UART) ↔ Arduino. RX buffer büyüt: keep-alive HTTPS döngüyü bloklarken
+  // gelen telemetri varsayılan 256B'yi taşırmasın → satırlar bozulmasın (setRxBufferSize
+  // Serial.begin'den ÖNCE çağrılmalı).
+  Serial.setRxBufferSize(512);
   Serial.begin(9600);
 
   // Serial1 (GPIO2 / D4) → USB-Serial adaptörü ile debug
