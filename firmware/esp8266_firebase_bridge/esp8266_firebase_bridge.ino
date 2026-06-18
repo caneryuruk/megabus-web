@@ -48,8 +48,8 @@
 
 // ESP firmware sürümü — Arduino'ya >V ile bildirilir, Arduino [ESP] ver=... satırında
 // gösterir. Doğru ESP firmware'i yüklü mü buradan anlaşılır. PID keep-alive ile gelir.
-#define ESP_FW_VERSION    "ka-pid-v7"
-#define VERSION_PUSH_MS    10000     // sürümü her 10sn'de bir Arduino'ya tekrar gönder
+#define ESP_FW_VERSION    "ka-pid-v8"
+#define VERSION_PUSH_MS     3000     // sürüm+teleRx'i her 3sn'de bir Arduino'ya gönder (teşhis)
 
 // ==================== URL YARDIMCILARI ====================
 // Stack'e geçici String basarız; tek seferlik HTTP çağrısı için yeterli.
@@ -272,12 +272,15 @@ void sendPidToArduino(float kp, float ki, float kd, int base, int maxS) {
   Serial.println(maxS);
 }
 
-// ESP sürümünü Arduino'ya bildir (>V). Arduino [ESP] ver=... satırında gösterir.
+// ESP sürümünü + KAÇ TELEMETRİ SATIRI ALDIĞINI Arduino'ya bildir (>V,<ver>,<teleCount>).
+// Arduino [ESP] ver=.. teleRx=.. satırında gösterir. teleRx artıyorsa ESP Arduino
+// telemetrisini ALIYOR; sabitse telemetri yönü kablosu (Arduino D11→ESP RX) kopuk.
 unsigned long lastVersionPushMs = 0;
 void sendVersionIfNeeded() {
   if (millis() - lastVersionPushMs < VERSION_PUSH_MS) return;
   lastVersionPushMs = millis();
-  Serial.print(F(">V,")); Serial.println(F(ESP_FW_VERSION));
+  Serial.print(F(">V,")); Serial.print(F(ESP_FW_VERSION));
+  Serial.print(','); Serial.println(teleCount);
 }
 
 // ==================== PID AYAR POLLİNG ====================

@@ -58,7 +58,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.8-fsr-a2a3"
+#define FW_VERSION "v3.9-telerx"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
@@ -275,6 +275,7 @@ unsigned long espRxBytes = 0;       // D10'a gelen toplam bayt
 unsigned long espRxLines = 0;       // tamamlanan satır sayısı
 char  lastEspLine[64] = "(yok)";    // son alınan satır
 char  espFwVersion[20] = "?";       // ESP'nin bildirdiği firmware sürümü (>V ile gelir)
+unsigned long espTeleRx = 0;        // ESP'nin parse ettiği telemetri satırı sayısı (>V 2. alan). Artmıyorsa ESP telemetri ALMIYOR.
 
 // ==================== ISR ====================
 void onEncR() { encTicksR++; }
@@ -906,6 +907,8 @@ void parseEspVersion(char* line) {
   if (!tok) return;
   strncpy(espFwVersion, tok, sizeof(espFwVersion) - 1);
   espFwVersion[sizeof(espFwVersion) - 1] = '\0';
+  tok = strtok(NULL, ",");      // 2. alan: ESP'nin aldığı telemetri sayısı
+  if (tok) espTeleRx = atol(tok);
 }
 
 void dispatchEspLine(char* line) {
@@ -1030,8 +1033,10 @@ void printDebugIfNeeded() {
   Serial.print(F(" Kd="));         Serial.print(Kd, 1);
   Serial.print(F(" base="));       Serial.println(baseSpeed);
 
-  // ESP RX teşhis: D10'dan bayt geliyor mu, ESP sürümü ne, son satır ne?
+  // ESP RX teşhis: ESP sürümü, ESP'nin ALDIĞI telemetri sayısı (teleRx artmıyorsa Arduino→ESP
+  // telemetri kablosu kopuk!), D10'dan gelen bayt, son satır.
   Serial.print(F("[ESP]  ver="));     Serial.print(espFwVersion);
+  Serial.print(F(" teleRx="));        Serial.print(espTeleRx);
   Serial.print(F(" rxBytes="));       Serial.print(espRxBytes);
   Serial.print(F(" lines="));         Serial.print(espRxLines);
   Serial.print(F(" manEn="));         Serial.print(manualEnabled?1:0);
