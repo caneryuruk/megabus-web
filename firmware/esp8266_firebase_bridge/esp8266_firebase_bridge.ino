@@ -48,7 +48,7 @@
 
 // ESP firmware sürümü — Arduino'ya >V ile bildirilir, Arduino [ESP] ver=... satırında
 // gösterir. Doğru ESP firmware'i yüklü mü buradan anlaşılır. PID keep-alive ile gelir.
-#define ESP_FW_VERSION    "ka-pid-v8"
+#define ESP_FW_VERSION    "ka-pid-v9"
 #define VERSION_PUSH_MS     3000     // sürüm+teleRx'i her 3sn'de bir Arduino'ya gönder (teşhis)
 
 // ==================== URL YARDIMCILARI ====================
@@ -133,6 +133,7 @@ uint16_t arIdx = 0;
 // TEŞHİS: Arduino telemetrisi FSR'ye kadar (8. alan) kaç kez parse edildi. DB'de artmıyorsa
 // ESP telemetriyi almıyor demektir (Arduino D11→ESP RX kablosu / parse sorunu).
 unsigned long teleCount = 0;
+int lastPatchCode = 0;   // TEŞHİS: son telemetri PATCH'inin HTTP kodu (200=ok, -1=heap-blocked/atlandı)
 
 // ==================== Wi-Fi ====================
 void startWifi() {
@@ -280,7 +281,9 @@ void sendVersionIfNeeded() {
   if (millis() - lastVersionPushMs < VERSION_PUSH_MS) return;
   lastVersionPushMs = millis();
   Serial.print(F(">V,")); Serial.print(F(ESP_FW_VERSION));
-  Serial.print(','); Serial.println(teleCount);
+  Serial.print(','); Serial.print(teleCount);
+  Serial.print(','); Serial.print(lastPatchCode);
+  Serial.print(','); Serial.println(ESP.getFreeHeap());
 }
 
 // ==================== PID AYAR POLLİNG ====================
@@ -610,6 +613,7 @@ void pushTelemetryIfNeeded() {
   json += '}';
 
   int code = httpPatch(carUrl(), json);
+  lastPatchCode = code;   // teşhis: Arduino [ESP] satırında gösterilir
   Serial1.print(F("[FB] PATCH "));
   Serial1.println(code);
 }

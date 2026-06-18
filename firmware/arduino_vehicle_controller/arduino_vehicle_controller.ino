@@ -58,7 +58,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.9-telerx"
+#define FW_VERSION "v3.10-patchdiag"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
@@ -276,6 +276,8 @@ unsigned long espRxLines = 0;       // tamamlanan satır sayısı
 char  lastEspLine[64] = "(yok)";    // son alınan satır
 char  espFwVersion[20] = "?";       // ESP'nin bildirdiği firmware sürümü (>V ile gelir)
 unsigned long espTeleRx = 0;        // ESP'nin parse ettiği telemetri satırı sayısı (>V 2. alan). Artmıyorsa ESP telemetri ALMIYOR.
+int   espPatchCode = 0;             // ESP'nin son telemetri PATCH HTTP kodu (>V 3. alan). 200=ok, -1=heap-blocked.
+long  espHeap      = 0;             // ESP boş RAM (>V 4. alan). <11000 ise PATCH atlanır.
 
 // ==================== ISR ====================
 void onEncR() { encTicksR++; }
@@ -909,6 +911,10 @@ void parseEspVersion(char* line) {
   espFwVersion[sizeof(espFwVersion) - 1] = '\0';
   tok = strtok(NULL, ",");      // 2. alan: ESP'nin aldığı telemetri sayısı
   if (tok) espTeleRx = atol(tok);
+  tok = strtok(NULL, ",");      // 3. alan: son telemetri PATCH HTTP kodu
+  if (tok) espPatchCode = atoi(tok);
+  tok = strtok(NULL, ",");      // 4. alan: ESP boş RAM
+  if (tok) espHeap = atol(tok);
 }
 
 void dispatchEspLine(char* line) {
@@ -1037,6 +1043,8 @@ void printDebugIfNeeded() {
   // telemetri kablosu kopuk!), D10'dan gelen bayt, son satır.
   Serial.print(F("[ESP]  ver="));     Serial.print(espFwVersion);
   Serial.print(F(" teleRx="));        Serial.print(espTeleRx);
+  Serial.print(F(" patch="));         Serial.print(espPatchCode);
+  Serial.print(F(" heap="));          Serial.print(espHeap);
   Serial.print(F(" rxBytes="));       Serial.print(espRxBytes);
   Serial.print(F(" lines="));         Serial.print(espRxLines);
   Serial.print(F(" manEn="));         Serial.print(manualEnabled?1:0);
