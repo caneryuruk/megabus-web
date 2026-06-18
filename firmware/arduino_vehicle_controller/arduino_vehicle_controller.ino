@@ -58,7 +58,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.10-patchdiag"
+#define FW_VERSION "v3.11-teletx"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
@@ -278,6 +278,7 @@ char  espFwVersion[20] = "?";       // ESP'nin bildirdiği firmware sürümü (>
 unsigned long espTeleRx = 0;        // ESP'nin parse ettiği telemetri satırı sayısı (>V 2. alan). Artmıyorsa ESP telemetri ALMIYOR.
 int   espPatchCode = 0;             // ESP'nin son telemetri PATCH HTTP kodu (>V 3. alan). 200=ok, -1=heap-blocked.
 long  espHeap      = 0;             // ESP boş RAM (>V 4. alan). <11000 ise PATCH atlanır.
+unsigned long teleTx = 0;           // Arduino'nun ESP'ye GÖNDERDİĞİ telemetri sayısı. Artar ama espTeleRx=0 ise kablo.
 
 // ==================== ISR ====================
 void onEncR() { encTicksR++; }
@@ -1013,6 +1014,7 @@ void sendTelemetry() {
   espSerial.print(currentSegment);   espSerial.print(',');
   espSerial.print(lapCount);         espSerial.print(',');
   espSerial.println(lastLapDurationMs);
+  teleTx++;   // teşhis: kaç telemetri satırı gönderildi
 }
 
 // ==================== DEBUG (Serial USB) ====================
@@ -1042,6 +1044,7 @@ void printDebugIfNeeded() {
   // ESP RX teşhis: ESP sürümü, ESP'nin ALDIĞI telemetri sayısı (teleRx artmıyorsa Arduino→ESP
   // telemetri kablosu kopuk!), D10'dan gelen bayt, son satır.
   Serial.print(F("[ESP]  ver="));     Serial.print(espFwVersion);
+  Serial.print(F(" teleTx="));        Serial.print(teleTx);
   Serial.print(F(" teleRx="));        Serial.print(espTeleRx);
   Serial.print(F(" patch="));         Serial.print(espPatchCode);
   Serial.print(F(" heap="));          Serial.print(espHeap);
