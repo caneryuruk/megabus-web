@@ -59,7 +59,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.6-dist-hyst"
+#define FW_VERSION "v3.7-hall-stop"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
@@ -106,7 +106,7 @@
 
 // Hall istasyon durağı
 #define HALL_DEBOUNCE_MS     800
-#define STATION_STOP_MS     3000
+#define STATION_STOP_MS     2000   // Hall algılayınca bu kadar dur (kullanıcı: 2 saniye)
 
 // Tekerlek parametreleri (encoder → cm dönüşümü)
 #define WHEEL_DIAMETER_CM    6.5f
@@ -124,14 +124,14 @@
 // 3sn marj: ESP HTTPS ile meşgulken komut göndermesi gecikebilir, yanlış durmasın.
 #define CMD_TIMEOUT_MS        3500
 
-// Mesafe sensörü 3 KADEME: >DIST_SLOW_CM normal, DIST_STOP_CM..DIST_SLOW_CM yavaş, <=DIST_STOP_CM DUR
-#define DIST_STOP_CM      12.0f  // bu kadar yakına gelince DUR
-#define DIST_SLOW_CM      30.0f  // bu mesafeden itibaren YAVAŞLA
-#define DIST_RESUME_CM    22.0f  // HİSTEREZİS: durduktan sonra ancak bunu geçince tekrar başlar (flicker önler)
+// Mesafe sensörü: yavaşlama YOK (kullanıcı isteği) — sadece DUR/normal. 16cm'de durur.
+#define DIST_STOP_CM      16.0f  // bu kadar yakına gelince DUR
+#define DIST_RESUME_CM    26.0f  // HİSTEREZİS: durduktan sonra ancak bunu geçince tekrar başlar (flicker önler)
 #define DIST_STOP_HOLD_MS 1500   // echo kaybında: yakın zamanda engel gördüysek bu kadar durmaya devam
-#define DIST_VERY_SLOW_CM 18.0f  // (kullanılmıyor; ETA için sabit duruyor)
-#define VERY_SLOW_SPEED   100    // ETA hız ölçeği için
-#define SLOW_SPEED        108    // YAVAŞ kademe — pil zayıfken motor ancak ~108'de döner (100 stall yapıyordu)
+#define DIST_VERY_SLOW_CM 20.0f  // (sadece ML distanceActionLevel için; harekete etkisi yok)
+#define DIST_SLOW_CM      30.0f  // (sadece ML distanceActionLevel için; harekete etkisi yok)
+#define VERY_SLOW_SPEED   100    // (sadece ETA hız ölçeği için, mesafede kullanılmıyor)
+#define SLOW_SPEED        108    // (sadece ETA hız ölçeği için)
 
 // ==================== GLOBAL NESNELER ====================
 SoftwareSerial espSerial(PIN_ESP_RX, PIN_ESP_TX);
@@ -530,16 +530,13 @@ void readDistanceIfNeeded() {
 
   distCm = dur / 58.0f;
 
-  // 3 KADEME + HİSTEREZİS (kullanıcı isteği):
-  if (distCm <= DIST_STOP_CM) {                          // KADEME 3: DUR
+  // DUR / NORMAL + HİSTEREZİS (yavaşlama yok):
+  if (distCm <= DIST_STOP_CM) {                          // DUR (engel yakın)
     distStop = true;
     lastStopConfirmMs = millis();
   } else if (distStop && distCm < DIST_RESUME_CM) {      // durmuştu, henüz açılmadı → DURMAYA DEVAM
     lastStopConfirmMs = millis();                        // hâlâ yakın, hold'u tazele
-  } else if (distCm <= DIST_SLOW_CM) {                   // KADEME 2: YAVAŞ
-    distStop = false;
-    baseSpeed = min(SLOW_SPEED, configuredBaseSpeed);
-  } else {                                               // KADEME 1: NORMAL
+  } else {                                               // NORMAL
     distStop = false;
     baseSpeed = configuredBaseSpeed;
   }
@@ -565,13 +562,18 @@ bool detectHallEvent() {
   return false;
 }
 
-void startStationPause() {
+// Basit duraklama: motorları durdur + 2sn timer başlat (sayaca dokunmaz).
+void beginPause() {
   stopMotors();
   stationPause = true;
   stationDetected = true;
   stationPauseUntil = millis() + STATION_STOP_MS;
-  currentStop = (currentStop + 1) % 6;  // 6 istasyon döngüsü
   strcpy(action, "STATION_STOP");
+}
+
+void startStationPause() {
+  beginPause();
+  currentStop = (currentStop + 1) % 6;  // 6 istasyon döngüsü (auto modu sayacı)
 }
 
 // İstasyon duraklaması devam ediyor mu? true ise dışarıda bekle
@@ -811,8 +813,12 @@ void updateMeasurement() {
 
 // Kalibrasyon/ölçüm hareketi: çizgi takip + Hall'da segment ölç (istasyonda DURMAZ)
 void updateCalibrationMovement() {
+  if (handleStationPause()) return;   // Hall 2sn durağı sürüyorsa bekle
+
   if (detectHallEvent()) {
-    onMeasurementHall();
+    onMeasurementHall();              // ML segment ölçümü (varsa)
+    beginPause();                     // Hall algılandı → 2sn DUR, sonra devam
+    return;
   }
 
   if (distStop) {
