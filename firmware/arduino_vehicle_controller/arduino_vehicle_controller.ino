@@ -3,7 +3,7 @@
 //
 // Donanım:
 //   PCF8574 @0x20  : 5x QTR sensör (P0-P4)
-//   ADS1115 @0x48  : 2x FSR doluluk sensörü (CH0, CH1)
+//   2x FSR koltuk sensörü : A2, A3 (doğrudan analogRead — ADS1115 yok)
 //   HC-SR04        : TRIG=A0, ECHO=A1
 //   Encoder Sağ    : D2 (INT0)
 //   Encoder Sol    : D3 (INT1)
@@ -18,7 +18,6 @@
 
 #include <Wire.h>
 #include <SoftwareSerial.h>
-#include <Adafruit_ADS1X15.h>
 
 // ==================== YÖN TERSLEME ====================
 // Step 5 testinde belirlendi:
@@ -45,6 +44,8 @@
 #define PIN_IN4       13    // Sol B
 #define PIN_ESP_RX    10
 #define PIN_ESP_TX    11
+#define PIN_FSR1      A2    // Koltuk 1 (FSR)
+#define PIN_FSR2      A3    // Koltuk 2 (FSR)
 
 // ==================== PCF8574 ====================
 #define PCF_ADDR   0x20
@@ -54,12 +55,10 @@
 #define BIT_S3     3    // Sağ-Orta
 #define BIT_S4     4    // Sağ
 
-// ==================== ADS1115 ====================
-#define ADS_ADDR   0x48
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.7-hall-stop"
+#define FW_VERSION "v3.8-fsr-a2a3"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
@@ -68,7 +67,7 @@
 #define DEFAULT_KP            9.0f
 #define DEFAULT_KI            0.0f
 #define DEFAULT_KD           51.0f
-#define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
+#define FSR_THRESHOLD 200  // analogRead (0-1023): bu değerin ÜSTÜ = koltukta biri oturuyor. Serial [FSR] ham değere bakıp ayarla.
 
 // Motor minimum hareket PWM. Eskiden 110'du ama bu, NAZİK dönüşte iç tekeri tabana
 // yapıştırıp durduruyordu (kullanıcı şikayeti). Düşürdük (85) ki iç teker dönüşte
@@ -135,7 +134,6 @@
 
 // ==================== GLOBAL NESNELER ====================
 SoftwareSerial espSerial(PIN_ESP_RX, PIN_ESP_TX);
-Adafruit_ADS1115 ads;
 
 // ==================== DURUM DEĞİŞKENLERİ ====================
 
@@ -247,7 +245,6 @@ unsigned long segLastDurationMs[STOP_COUNT] = {0};
 int   etaSec                = 0;   // sıradaki durağa tahmini varış (sn)
 
 // FSR / Doluluk
-bool  adsReady        = false;
 int   fsr1Raw         = 0;
 int   fsr2Raw         = 0;
 bool  fsr1Occupied    = false;
@@ -593,20 +590,11 @@ void readFsrIfNeeded() {
   if (millis() - lastFsrMs < FSR_INTERVAL_MS) return;
   lastFsrMs = millis();
 
-  if (!adsReady) {
-    // ADS1115 bağlı değil: sabit boş
-    fsr1Raw = 0; fsr2Raw = 0;
-    fsr1Occupied = false; fsr2Occupied = false;
-    strcpy(occupancyStatus, "empty");
-    strcpy(occupancyLabel,  "Empty");
-    strcpy(occupancyColor,  "green");
-    return;
-  }
-
-  fsr1Raw = (int)ads.readADC_SingleEnded(0);
-  fsr2Raw = (int)ads.readADC_SingleEnded(1);
-  fsr1Occupied = (fsr1Raw > DEFAULT_FSR_THRESHOLD);
-  fsr2Occupied = (fsr2Raw > DEFAULT_FSR_THRESHOLD);
+  // FSR'ler doğrudan A2/A3'ten okunur (ADS1115 yok). analogRead 0-1023.
+  fsr1Raw = analogRead(PIN_FSR1);   // A2 — koltuk 1
+  fsr2Raw = analogRead(PIN_FSR2);   // A3 — koltuk 2
+  fsr1Occupied = (fsr1Raw > FSR_THRESHOLD);
+  fsr2Occupied = (fsr2Raw > FSR_THRESHOLD);
 
   int count = (fsr1Occupied ? 1 : 0) + (fsr2Occupied ? 1 : 0);
 
@@ -1084,11 +1072,7 @@ void setup() {
   Wire.write(0xFF);
   Wire.endTransmission();
 
-  // ADS1115
-  adsReady = ads.begin(ADS_ADDR);
-  if (adsReady) ads.setGain(GAIN_ONE);
-  Serial.print(F("ADS1115: "));
-  Serial.println(adsReady ? F("OK") : F("not found (FSR disabled)"));
+  // FSR koltuk sensörleri (A2/A3) — analogRead, pinMode gerekmez (varsayılan giriş).
 
   // HC-SR04
   pinMode(PIN_TRIG, OUTPUT);
