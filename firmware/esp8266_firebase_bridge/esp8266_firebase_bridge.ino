@@ -291,9 +291,9 @@ void readPidIfNeeded() {
   if (ver == lastPidVersion) return;
   lastPidVersion = ver;
 
-  float kp = jsonFloat(body, "kp", 10.0);
+  float kp = jsonFloat(body, "kp", 9.0);
   float ki = jsonFloat(body, "ki", 0.0);
-  float kd = jsonFloat(body, "kd", 46.0);
+  float kd = jsonFloat(body, "kd", 51.0);
   int base = constrain(jsonInt(body, "baseSpeed", 110), 95, 255);
   int maxS = constrain(jsonInt(body, "maxSpeed", 255), 0, 255);
 
@@ -332,9 +332,9 @@ void applyManualBody(const String& body) {
   // en fazla saniyede bir parse et (PID değişiminin 1sn'de uygulanması fazlasıyla yeterli).
   if (body.indexOf("\"kp\"") >= 0 && millis() - lastPidKaMs > 1000) {
     lastPidKaMs = millis();
-    float kp = jsonFloat(body, "kp", 10.0);
+    float kp = jsonFloat(body, "kp", 9.0);
     float ki = jsonFloat(body, "ki", 0.0);
-    float kd = jsonFloat(body, "kd", 46.0);
+    float kd = jsonFloat(body, "kd", 51.0);
     int base = constrain(jsonInt(body, "baseSpeed", 110), 95, 255);
     int maxS = constrain(jsonInt(body, "maxSpeed", 255), 0, 255);
     String sig = String(kp,1)+","+String(ki,1)+","+String(kd,1)+","+String(base)+","+String(maxS);

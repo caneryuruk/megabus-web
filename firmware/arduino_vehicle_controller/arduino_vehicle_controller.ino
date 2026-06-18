@@ -59,14 +59,15 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.4-dfilter"
+#define FW_VERSION "v3.5-dist3stage"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
 // Kd = sönümleme (overshoot/zigzag'ı azaltır). Panelden ayarlanır VE artık gerçekten kullanılır.
-#define DEFAULT_KP           10.0f
-#define DEFAULT_KI           0.0f
-#define DEFAULT_KD           46.0f
+// KULLANICI ONAYLADI (mükemmel/smooth): Kp=9, Kd=51. AKSİ SÖYLENMEDİKÇE DOKUNMA.
+#define DEFAULT_KP            9.0f
+#define DEFAULT_KI            0.0f
+#define DEFAULT_KD           51.0f
 #define DEFAULT_FSR_THRESHOLD 1000  // ADS ham değer (0-32767 arası)
 
 // Motor minimum hareket PWM. Eskiden 110'du ama bu, NAZİK dönüşte iç tekeri tabana
@@ -123,12 +124,12 @@
 // 3sn marj: ESP HTTPS ile meşgulken komut göndermesi gecikebilir, yanlış durmasın.
 #define CMD_TIMEOUT_MS        3500
 
-// Mesafe eşikleri
-#define DIST_STOP_CM       8.0f
-#define DIST_VERY_SLOW_CM 18.0f
-#define DIST_SLOW_CM      35.0f
-#define VERY_SLOW_SPEED   120   // -10 (taban 110'a takılı; engelde daha çok yavaşlamaz, zaten yavaş)
-#define SLOW_SPEED         123
+// Mesafe sensörü 3 KADEME: >DIST_SLOW_CM normal, DIST_STOP_CM..DIST_SLOW_CM yavaş, <=DIST_STOP_CM DUR
+#define DIST_STOP_CM      12.0f  // bu kadar yakına gelince DUR (8→12: daha güvenli marj)
+#define DIST_SLOW_CM      30.0f  // bu mesafeden itibaren YAVAŞLA
+#define DIST_VERY_SLOW_CM 18.0f  // (kullanılmıyor; ETA için sabit duruyor)
+#define VERY_SLOW_SPEED    95    // ETA hız ölçeği için (taban altı)
+#define SLOW_SPEED        100    // YAVAŞ kademe hızı — taban(110) altında ki gerçekten yavaşlasın
 
 // ==================== GLOBAL NESNELER ====================
 SoftwareSerial espSerial(PIN_ESP_RX, PIN_ESP_TX);
@@ -517,15 +518,16 @@ void readDistanceIfNeeded() {
   if (dur == 0) { distCm = -1; distStop = false; baseSpeed = configuredBaseSpeed; return; }
 
   distCm = dur / 58.0f;
-  distStop = (distCm <= DIST_STOP_CM);
 
-  if (!distStop) {
-    if (distCm <= DIST_VERY_SLOW_CM)
-      baseSpeed = min(VERY_SLOW_SPEED, configuredBaseSpeed);
-    else if (distCm <= DIST_SLOW_CM)
-      baseSpeed = min(SLOW_SPEED, configuredBaseSpeed);
-    else
-      baseSpeed = configuredBaseSpeed;
+  // 3 KADEME (kullanıcı isteği):
+  if (distCm <= DIST_STOP_CM) {                 // KADEME 3: DUR (engel çok yakın)
+    distStop = true;
+  } else if (distCm <= DIST_SLOW_CM) {          // KADEME 2: YAVAŞ
+    distStop = false;
+    baseSpeed = min(SLOW_SPEED, configuredBaseSpeed);
+  } else {                                      // KADEME 1: NORMAL
+    distStop = false;
+    baseSpeed = configuredBaseSpeed;
   }
 }
 

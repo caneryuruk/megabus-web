@@ -2401,9 +2401,9 @@
             <div class="pid-card">
               <h3>${carId} PID Settings</h3>
               <div class="pid-form-grid">
-                <label>Kp<input id="pid-${carId}-kp" type="number" step="0.001" value="${pidValue(carId, "kp", 10)}" /></label>
+                <label>Kp<input id="pid-${carId}-kp" type="number" step="0.001" value="${pidValue(carId, "kp", 9)}" /></label>
                 <label>Ki<input id="pid-${carId}-ki" type="number" step="0.001" value="${pidValue(carId, "ki", 0)}" /></label>
-                <label>Kd<input id="pid-${carId}-kd" type="number" step="0.001" value="${pidValue(carId, "kd", 46)}" /></label>
+                <label>Kd<input id="pid-${carId}-kd" type="number" step="0.001" value="${pidValue(carId, "kd", 51)}" /></label>
                 <label>Base Speed (95-255)<input id="pid-${carId}-baseSpeed" type="number" min="95" max="255" step="1" value="${pidValue(carId, "baseSpeed", 110)}" /></label>
                 <label>Max Speed (0-255)<input id="pid-${carId}-maxSpeed" type="number" min="0" max="255" step="1" value="${pidValue(carId, "maxSpeed", 255)}" /></label>
               </div>
@@ -2726,9 +2726,9 @@
     async function savePidSettings(carId) {
       const now = Date.now();
       const pid = {
-        kp: readPidInput(carId, "kp", 10),
+        kp: readPidInput(carId, "kp", 9),
         ki: readPidInput(carId, "ki", 0),
-        kd: readPidInput(carId, "kd", 46),
+        kd: readPidInput(carId, "kd", 51),
         baseSpeed: Math.max(95, Math.min(255, Math.round(readPidInput(carId, "baseSpeed", 110)))),
         maxSpeed: Math.max(0, Math.min(255, Math.round(readPidInput(carId, "maxSpeed", 255)))),
         updatedAt: now,
