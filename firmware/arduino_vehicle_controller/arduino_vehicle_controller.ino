@@ -59,8 +59,8 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.1-proportional"
-#define DEFAULT_BASE_SPEED   150    // 0-255. Tüm hızlar +5 daha (kullanıcı isteği). (145→150)
+#define FW_VERSION "v3.2-slower"
+#define DEFAULT_BASE_SPEED   135    // 0-255. Hız düşürüldü (150→135): araç çok hızlıydı→zigzag. 130 ALTINA İNME (pil zayıf, altı dönmüyor).
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
 // Kd = sönümleme (overshoot/zigzag'ı azaltır). Panelden ayarlanır VE artık gerçekten kullanılır.
@@ -73,7 +73,7 @@
 // yapıştırıp durduruyordu (kullanıcı şikayeti). Düşürdük (85) ki iç teker dönüşte
 // YAVAŞLAYABİLSİN ama dönmeye devam etsin. Kalkış takılması STARTUP_BOOST ile çözülüyor
 // (teker zaten yuvarlanırken 85 PWM onu döndürmeye yeter; duran tekeri boost kırar).
-#define MIN_MOVE_PWM    100
+#define MIN_MOVE_PWM    130   // pil zayıfken motorlar 130 ALTINDA dönmüyor (kullanıcı ölçtü)
 // Başlangıç boost (durağan motorları kırmak için kısa darbe). Floor düştüğü için süreyi
 // 90→120ms uzattık ki 0'dan kalkış garanti olsun.
 #define STARTUP_BOOST_PWM  205
@@ -86,7 +86,7 @@
 // ORANSAL PD kontrol (Kp/Kd ile, centroid hata üzerinden) — movePIDFollow'a bak.
 // Yumuşak hızlanma: dönüşten sonra ANİ hız sıçraması zigzag yapar. Taban hız RAMP_START'tan
 // baseSpeed'e, her RAMP_INTERVAL_MS'de RAMP_STEP PWM kademeli yükselir. Keskin dönüşte sıfırlanır.
-#define RAMP_START       125   // dönüşten sonra başlanacak en yavaş (motoru döndüren) hız
+#define RAMP_START       130   // en yavaş (motoru döndüren) başlangıç hızı — 130 altı dönmüyor
 #define RAMP_STEP          3
 #define RAMP_INTERVAL_MS  20
 
@@ -127,8 +127,8 @@
 #define DIST_STOP_CM       8.0f
 #define DIST_VERY_SLOW_CM 18.0f
 #define DIST_SLOW_CM      35.0f
-#define VERY_SLOW_SPEED   105
-#define SLOW_SPEED         145
+#define VERY_SLOW_SPEED   130   // 130 altı dönmüyor (pil zayıf)
+#define SLOW_SPEED         133
 
 // ==================== GLOBAL NESNELER ====================
 SoftwareSerial espSerial(PIN_ESP_RX, PIN_ESP_TX);
