@@ -48,7 +48,7 @@
 
 // ESP firmware sürümü — Arduino'ya >V ile bildirilir, Arduino [ESP] ver=... satırında
 // gösterir. Doğru ESP firmware'i yüklü mü buradan anlaşılır. PID keep-alive ile gelir.
-#define ESP_FW_VERSION    "ka-pid-v6"
+#define ESP_FW_VERSION    "ka-pid-v7"
 #define VERSION_PUSH_MS    10000     // sürümü her 10sn'de bir Arduino'ya tekrar gönder
 
 // ==================== URL YARDIMCILARI ====================
@@ -689,13 +689,15 @@ void loop() {
   // Manuel: hızlı poll (öncelikli) + komutu sık gönder
   pushCommandToArduino();
   readManualControl();
+  readArduinoIfAvailable();   // keep-alive GET sonrası UART'ı HEMEN boşalt (telemetri taşmasın)
   pushCommandToArduino();
 
-  // Latency-kritik olmayanlar (seyrek)
-  readVehicleCommandIfNeeded();
-  readPidIfNeeded();
-  uploadSegmentIfPending();
-  pushTelemetryIfNeeded();
+  // Latency-kritik olmayanlar (seyrek). HER bloklayan op'tan SONRA UART'ı boşalt ki
+  // Arduino telemetrisi (FSR dahil) buffer'da birikip bozulmasın. (Manuele dokunmaz.)
+  readVehicleCommandIfNeeded(); readArduinoIfAvailable();
+  readPidIfNeeded();            readArduinoIfAvailable();
+  uploadSegmentIfPending();     readArduinoIfAvailable();
+  pushTelemetryIfNeeded();      readArduinoIfAvailable();
   sendVersionIfNeeded();   // ESP sürümünü Arduino'ya bildir (>V)
 
   delay(2);
