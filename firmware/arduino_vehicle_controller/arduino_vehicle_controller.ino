@@ -59,7 +59,7 @@
 
 // ==================== VARSAYILAN AYARLAR ====================
 // Firmware sürümü — boot ve debug çıktısında görünür; doğru firmware yüklü mü diye bak.
-#define FW_VERSION "v3.5-dist3stage"
+#define FW_VERSION "v3.6-dist-hyst"
 #define DEFAULT_BASE_SPEED   110    // 0-255. Düz gidiş hızı -25 (135→110, kullanıcı: düz çok hızlı). NOT: 130 altı; takılırsa yükselt.
 #define DEFAULT_MAX_SPEED    255
 // ORANSAL PD: Kp = hatayla orantılı düzeltme (yüksek = sıkı takip ama overshoot riski),
@@ -125,11 +125,13 @@
 #define CMD_TIMEOUT_MS        3500
 
 // Mesafe sensörü 3 KADEME: >DIST_SLOW_CM normal, DIST_STOP_CM..DIST_SLOW_CM yavaş, <=DIST_STOP_CM DUR
-#define DIST_STOP_CM      12.0f  // bu kadar yakına gelince DUR (8→12: daha güvenli marj)
+#define DIST_STOP_CM      12.0f  // bu kadar yakına gelince DUR
 #define DIST_SLOW_CM      30.0f  // bu mesafeden itibaren YAVAŞLA
+#define DIST_RESUME_CM    22.0f  // HİSTEREZİS: durduktan sonra ancak bunu geçince tekrar başlar (flicker önler)
+#define DIST_STOP_HOLD_MS 1500   // echo kaybında: yakın zamanda engel gördüysek bu kadar durmaya devam
 #define DIST_VERY_SLOW_CM 18.0f  // (kullanılmıyor; ETA için sabit duruyor)
-#define VERY_SLOW_SPEED    95    // ETA hız ölçeği için (taban altı)
-#define SLOW_SPEED        100    // YAVAŞ kademe hızı — taban(110) altında ki gerçekten yavaşlasın
+#define VERY_SLOW_SPEED   100    // ETA hız ölçeği için
+#define SLOW_SPEED        108    // YAVAŞ kademe — pil zayıfken motor ancak ~108'de döner (100 stall yapıyordu)
 
 // ==================== GLOBAL NESNELER ====================
 SoftwareSerial espSerial(PIN_ESP_RX, PIN_ESP_TX);
@@ -142,6 +144,7 @@ bool  s[5]        = {false};   // QTR sensör sonuçları (true=siyah)
 uint8_t rawPCF    = 0xFF;
 float distCm      = -1.0f;
 bool  distStop    = false;
+unsigned long lastStopConfirmMs = 0;   // son geçerli "yakın engel" okumasının anı (histerezis/hold)
 
 // PID
 float Kp = DEFAULT_KP;
@@ -515,17 +518,28 @@ void readDistanceIfNeeded() {
   // yokken pulseIn döngüyü en fazla 5ms bloklar (12ms yerine) → kontrol döngüsü daha
   // akıcı, çizgi takibinde periyodik "kör nokta" azalır → daha az zigzag.
   unsigned long dur = pulseIn(PIN_ECHO, HIGH, 5000);
-  if (dur == 0) { distCm = -1; distStop = false; baseSpeed = configuredBaseSpeed; return; }
+
+  if (dur == 0) {
+    // Echo yok: ya uzak (temiz) ya çok yakın (sensör okuyamaz). Eğer DURMUŞ haldeysek ve
+    // yakın zamanda engel onayladıysak, muhtemelen çok yakın → kısa süre DURMAYA DEVAM
+    // (titreşimde/echo kaybında erken kalkmasın). Süre dolarsa temiz say.
+    if (distStop && millis() - lastStopConfirmMs < DIST_STOP_HOLD_MS) return;  // durmaya devam
+    distStop = false; distCm = -1; baseSpeed = configuredBaseSpeed;
+    return;
+  }
 
   distCm = dur / 58.0f;
 
-  // 3 KADEME (kullanıcı isteği):
-  if (distCm <= DIST_STOP_CM) {                 // KADEME 3: DUR (engel çok yakın)
+  // 3 KADEME + HİSTEREZİS (kullanıcı isteği):
+  if (distCm <= DIST_STOP_CM) {                          // KADEME 3: DUR
     distStop = true;
-  } else if (distCm <= DIST_SLOW_CM) {          // KADEME 2: YAVAŞ
+    lastStopConfirmMs = millis();
+  } else if (distStop && distCm < DIST_RESUME_CM) {      // durmuştu, henüz açılmadı → DURMAYA DEVAM
+    lastStopConfirmMs = millis();                        // hâlâ yakın, hold'u tazele
+  } else if (distCm <= DIST_SLOW_CM) {                   // KADEME 2: YAVAŞ
     distStop = false;
     baseSpeed = min(SLOW_SPEED, configuredBaseSpeed);
-  } else {                                      // KADEME 1: NORMAL
+  } else {                                               // KADEME 1: NORMAL
     distStop = false;
     baseSpeed = configuredBaseSpeed;
   }
